@@ -8,3 +8,4 @@ postgres-data/
 scoreboard_redis/
 **/main
 **/tmp/
+.DS_Store

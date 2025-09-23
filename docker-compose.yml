@@ -51,7 +51,7 @@ services:
       # - src/Services/gateway/.env
       - ./.env
     ports:
-      - "80:80"
+      - "81:81"
     volumes:
       - ./src/Services/gateway:/app
     networks:
