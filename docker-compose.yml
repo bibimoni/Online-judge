@@ -3,7 +3,7 @@ services:
     container_name: submission-judge-app
     build: 
       context: ./src/Services/submission-judge/ 
-      target: dev #prod 
+      target: dev_ssh
     env_file:
       # - src/Services/submission-judge/.env
       - ./.env
@@ -36,7 +36,7 @@ services:
     image: redis
     restart: always
     ports:
-      - '6379:6379'
+      - '6381:6379'
     command: redis-server --save 20 1 --loglevel warning --requirepass root
     networks:
       - online-judge-network
@@ -46,7 +46,7 @@ services:
     container_name: gateway-app 
     build:
       context: ./src/Services/gateway/
-      target: dev #prod
+      target: dev_ssh 
     env_file:
       # - src/Services/gateway/.env
       - ./.env
@@ -57,7 +57,9 @@ services:
     networks:
       - online-judge-network
   problem:
-    build: ./src/Services/problem/
+    build:
+      context: ./src/Services/problem/
+      target: dev_ssh
     container_name: problem
     ports:
       - '3000:3000'
@@ -84,44 +86,44 @@ services:
       - ./problem-db-data:/data/db
     networks:
       - online-judge-network
-  contest:
-    build: ./src/Services/contest/
-    container_name: contest
-    ports:
-      - '2000:2000'
-    depends_on:
-      - contestmongodb
-      - scoreboard_redis
-    env_file:
-      - ./.env
-    volumes:
-      - ./src/Services/contest:/app
-    networks:
-      - online-judge-network
-  contestmongodb:
-    image: mongo
-    container_name: contest-mongo
-    restart: always
-    environment:
-    #   MONGO_INITDB_ROOT_USERNAME: root 
-    #   MONGO_INITDB_ROOT_PASSWORD: root
-      MONGO_INITDB_DATABASE: contest-db
-    ports:
-      - '47017:27017'
-    volumes:
-      - ./contest-db-data:/data/db
-    networks:
-      - online-judge-network
-  scoreboard_redis:
-    image: redis
-    container_name: scoreboard_redis
-    ports:
-      - "6380:6379"
-    restart: always
-    volumes:
-      - ./scoreboard_redis:/data
-    networks:
-      - online-judge-network
+  # contest:
+  #   build: ./src/Services/contest/
+  #   container_name: contest
+  #   ports:
+  #     - '2000:2000'
+  #   depends_on:
+  #     - contestmongodb
+  #     - scoreboard_redis
+  #   env_file:
+  #     - ./.env
+  #   volumes:
+  #     - ./src/Services/contest:/app
+  #   networks:
+  #     - online-judge-network
+  # contestmongodb:
+  #   image: mongo
+  #   container_name: contest-mongo
+  #   restart: always
+  #   environment:
+  #   #   MONGO_INITDB_ROOT_USERNAME: root 
+  #   #   MONGO_INITDB_ROOT_PASSWORD: root
+  #     MONGO_INITDB_DATABASE: contest-db
+  #   ports:
+  #     - '47017:27017'
+  #   volumes:
+  #     - ./contest-db-data:/data/db
+  #   networks:
+  #     - online-judge-network
+  # scoreboard_redis:
+  #   image: redis
+  #   container_name: scoreboard_redis
+  #   ports:
+  #     - "6380:6379"
+  #   restart: always
+  #   volumes:
+  #     - ./scoreboard_redis:/data
+  #   networks:
+  #     - online-judge-network
 networks:
   online-judge-network:
     driver: bridge
