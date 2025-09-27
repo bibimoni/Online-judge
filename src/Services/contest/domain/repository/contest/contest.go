@@ -13,4 +13,5 @@ type ContestRepository interface {
 
 	AddPeople(contestId string, peopleType string, userId uint64) error
 	RemovePeople(contestId string, peopleType string, userId uint64) error
+	EditProblemset(contestId string, newProblemset []uint64) error
 }

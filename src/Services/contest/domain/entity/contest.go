@@ -60,11 +60,11 @@ func (contest *Contest) clean() error {
 	return nil
 }
 
-func (contest *Contest) has_started() bool {
+func (contest *Contest) HasStarted() bool {
 	return time.Now().After(contest.StartTime)
 }
 
-func (contest *Contest) has_ended() bool {
+func (contest *Contest) HasEnded() bool {
 	return time.Now().After(contest.EndTime)
 }
 

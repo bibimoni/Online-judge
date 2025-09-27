@@ -171,41 +171,20 @@ func (cr *ContestRepositoryImpl) RemovePeople(contestId string, peopleType strin
 	return nil
 }
 
-// func (cr *ContestRepositoryImpl) AddAuthor(contestId string, authorId uint64) error {
-// 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-// 	defer cancel()
+func (cr *ContestRepositoryImpl) EditProblemset(contestId string, newProblemset []uint64) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
 
-// 	_, err := cr.collection.UpdateOne(
-// 		ctx,
-// 		bson.M{"id": contestId},
-// 		bson.M{"$push": bson.M{"authors": strconv.Itoa(int(authorId))}},
-// 	)
-// 	if err != nil {
-// 		return err
-// 	}
+	_, err := cr.collection.UpdateOne(
+		ctx,
+		bson.M{"id": contestId},
+		bson.M{"$set": bson.M{"problems": newProblemset}},
+	)
+	if err != nil {
+		return err
+	}
 
-// 	log.Info().Msg(fmt.Sprintf("Add author %d to the contest %s", authorId, contestId))
+	log.Info().Msgf("new problemset for contest %s: %v", contestId, newProblemset)
 
-// 	return nil
-// }
-
-// func (cr *ContestRepositoryImpl) RemoveAuthor(ctx context.Context, contestId string, authorId uint64) error {
-// 	return nil
-// }
-
-// func (cr *ContestRepositoryImpl) AddContestant(contestId string, userId uint64) error {
-// 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-// 	defer cancel()
-
-// 	_, err := cr.collection.UpdateOne(
-// 		ctx,
-// 		bson.M{"id": contestId},
-// 		bson.M{"$push": bson.M{"contestants": domain.CreateContestant(userId)}},
-// 	)
-
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-// }
+	return nil
+}
