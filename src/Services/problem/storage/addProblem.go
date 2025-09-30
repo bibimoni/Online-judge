@@ -55,22 +55,22 @@ func AddProblem(ProblemId uint64) error {
 	var PackageId uint64
 	PackageId, err := polygon.GetLastestPackage(ProblemId)
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting latest package: %s", err.Error())
 	}
 
 	if err := polygon.DownloadPackage(ProblemId, PackageId); err != nil {
-		return err
+		return fmt.Errorf("error downloading package: %s", err.Error())
 	}
 
 	file, err := os.Open(fmt.Sprintf("%s/%d/problem.json", os.Getenv("PROBLEM_STORAGE_DIR"), ProblemId))
 	if err != nil {
-		return err
+		return fmt.Errorf("error opening problem.xml: %s", err.Error())
 	}
 	defer file.Close()
 
 	var problem models.Problem
 	if err := json.NewDecoder(file).Decode(&problem); err != nil {
-		return err
+		return fmt.Errorf("error decoding problem.xml: %s", err.Error())
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

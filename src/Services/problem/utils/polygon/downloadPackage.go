@@ -33,13 +33,13 @@ func DownloadPackage(problemId uint64, packageId uint64) error {
 	}
 	resp, err := polygonApiCall("problem.package", params)
 	if err != nil {
-		return err
+		return fmt.Errorf("error making Polygon api call: %s", err.Error())
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return fmt.Errorf("error parsing response body: %s", err.Error())
 	}
 	if resp.StatusCode != 200 {
 		return errors.New(string(body))
@@ -48,12 +48,12 @@ func DownloadPackage(problemId uint64, packageId uint64) error {
 	// Extract to a temporary directory
 	f, err := os.CreateTemp("", "*.zip")
 	if err != nil {
-		return err
+		return fmt.Errorf("error creating temporary zip: %s", err.Error())
 	}
 	defer f.Close()
 
 	if _, err = f.Write(body); err != nil {
-		return err
+		return fmt.Errorf("error getting response: %s", err.Error())
 	}
 
 	dirpath := fmt.Sprintf("%s/%s", os.Getenv("PROBLEM_STORAGE_DIR"), params["problemId"])
@@ -61,7 +61,7 @@ func DownloadPackage(problemId uint64, packageId uint64) error {
 		return err
 	}
 	if err := os.Mkdir(dirpath, os.ModePerm); err != nil {
-		return nil
+		return fmt.Errorf("error making temporary directory: %s", err.Error())
 	}
 
 	tempdir, err := os.MkdirTemp("", "")
@@ -87,13 +87,7 @@ func DownloadPackage(problemId uint64, packageId uint64) error {
 
 	var errBuffer bytes.Buffer
 
-	cmd := exec.Command("scripts/get_tests/main.sh", tempdir, dirpath)
-	cmd.Stderr = &errBuffer
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("error getting tests: %s", errBuffer.String())
-	}
-
-	cmd = exec.Command("scripts/gen_statement/main.sh", tempdir, dirpath)
+	cmd := exec.Command("scripts/gen_statement/main.sh", tempdir, dirpath)
 	cmd.Stderr = &errBuffer
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("error creating statement: %s", errBuffer.String())
@@ -108,7 +102,7 @@ func DownloadPackage(problemId uint64, packageId uint64) error {
 
 	doc, err := xmlquery.Parse(f)
 	if err != nil {
-		return err
+		return fmt.Errorf("error parsing problem.xml: %s", err.Error())
 	}
 
 	checker_file := tempdir + "/" + xmlquery.FindOne(doc, "/problem/assets/checker/source").SelectAttr("path")
@@ -132,12 +126,24 @@ func DownloadPackage(problemId uint64, packageId uint64) error {
 			return fmt.Errorf("error getting interactive-related files: %s", errBuffer.String())
 		}
 
+		cmd = exec.Command("scripts/handle_interactive_problem/get_tests.sh", tempdir, dirpath)
+		cmd.Stderr = &errBuffer
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("error getting interactive tests: %s", errBuffer.String())
+		}
+
 		problem.IsInteractive = true
+	} else {
+		cmd := exec.Command("scripts/get_tests/main.sh", tempdir, dirpath)
+		cmd.Stderr = &errBuffer
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("error getting tests: %s", errBuffer.String())
+		}
 	}
 
 	if err := utils.SaveProblemToJson(problem, dirpath+"/problem.json"); err != nil {
-		return err
+		return fmt.Errorf("error saving to problem.json: %s", err.Error())
 	}
 
-	return err
+	return nil
 }

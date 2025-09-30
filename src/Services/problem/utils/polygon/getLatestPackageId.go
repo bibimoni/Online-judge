@@ -31,7 +31,7 @@ func GetLastestPackage(problemId uint64) (uint64, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return 0, fmt.Errorf("get error while getting latest packageId: %s", resp.Body)
+		return 0, fmt.Errorf("get error while getting latest packageId: %v", resp)
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
