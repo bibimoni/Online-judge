@@ -7,6 +7,7 @@ import (
 	"github.com/bibimoni/Online-judge/gateway/src/server"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 )
 
 func main() {
@@ -15,6 +16,7 @@ func main() {
 	s := server.NewServer()
 	r := server.GetRouter()
 
+	r.Use(cors.AllowAll().Handler)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
