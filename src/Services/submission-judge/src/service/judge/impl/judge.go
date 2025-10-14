@@ -320,7 +320,6 @@ func (js *JudgeServiceImpl) RunCase(
 		if err != nil {
 			return true, nil
 		}
-
 		interactorAddr := judgeutils.GetSubmissionInteractorAddr(i, req)
 		crossrunAddr := judgeutils.GetSubmissionCrossRunJarAddr(i, req)
 		reportAddr := judgeutils.GetSubmissionReportFileAddr(i, req)
@@ -332,9 +331,6 @@ func (js *JudgeServiceImpl) RunCase(
 		i.Logger.Debug().Msgf("Interactor response: vert: %v, msg: %s", ivert, msg)
 	} else {
 		err = lang.Run(i, &rc, req)
-		if err != nil {
-			return true, err
-		}
 	}
 
 	vert, err := judgeutils.CheckRunStatus(i, req.SubmissionId)
