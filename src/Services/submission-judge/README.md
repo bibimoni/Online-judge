@@ -158,7 +158,7 @@ GET /api/v1/submission/contest/:contest_id
 * Param: `problem_id` (type `string`)
 * Description: Return all the `submission_id` and related information of a problem.
 ```jsonld
-GET /api/v1/submission/problem/:problem_id
+GET /api/v1/submission/problem/view/:problem_id
 {
     {
 	"data": {

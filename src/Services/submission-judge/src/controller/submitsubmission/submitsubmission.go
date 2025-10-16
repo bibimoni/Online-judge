@@ -38,7 +38,7 @@ func toSubmitSubmissionType(c *gin.Context) (*usecase.SubmitSubmissionInput, err
 	// Guard submission type, i think all the validation should happen here
 	// as long as it doesn't require any service / repository
 	if input.SubmissionType != domain.SubmissionType(domain.ICPC) {
-		return nil, fmt.Errorf("Sorry, we currently don't support thi type of submission: %s", input.SubmissionType)
+		return nil, fmt.Errorf("Sorry, we currently don't support this type of submission: %s", input.SubmissionType)
 	}
 
 	return &input, nil
