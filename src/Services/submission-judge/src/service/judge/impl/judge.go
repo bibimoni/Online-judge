@@ -110,12 +110,15 @@ func (js *JudgeServiceImpl) JudgeStart(ctx context.Context, lang pkg.Language, r
 		return err
 	}
 
+	defer (*js.pService).Put(i)
+	defer i.Logger.Debug().Msgf("Returning isolate to pool, number in pool will be: %d", (*js.pService).Len()+1)
+
 	i.Logger.Debug().Msgf("Took out an isolate, number of isolate remains in the pool is: %d", (*js.pService).Len())
 	// Prepare all the nessessary files
 	err = js.Prep(ctx, i, lang, req, problemInfo)
 	if err != nil {
 		i.Logger.Debug().Msgf("Error: %v", err)
-		i.Logger.Debug().Msgf("Judgement failed or CompilationError, return the isolate, number of isolate in the pool is: %d", (*js.pService).Len())
+		// i.Logger.Debug().Msgf("Judgement failed or CompilationError, return the isolate, number of isolate in the pool is: %d", (*js.pService).Len())
 		return err
 	}
 
@@ -125,7 +128,7 @@ func (js *JudgeServiceImpl) JudgeStart(ctx context.Context, lang pkg.Language, r
 	case domain.SubmissionType(domain.ICPC):
 		err = js.JudgeICPC(ctx, i, lang, req, problemInfo)
 	default:
-		(*js.pService).Put(i)
+		// (*js.pService).Put(i)
 		i.Logger.Error().Msgf("Other submission type is not supported")
 		err = judge.UnsupportedSubmissionType
 	}
@@ -144,12 +147,12 @@ func (js *JudgeServiceImpl) Prep(ctx context.Context, i *domain.Isolate, lang pk
 	)
 
 	// always remember to return the isolate instance
-	defer func() {
-		if err != nil {
-			judgeutils.ReturnIsolateIfFail(js.pService, i, err)
-		}
-	}()
-
+	// defer func() {
+	// 	if err != nil {
+	// 		judgeutils.ReturnIsolateIfFail(js.pService, i, err)
+	// 	}
+	// }()
+	//
 	_, err = utils.CreateSubmissionSourceFile(i, req.Sourcecode, req.SubmissionId, lang.DefaultFileName())
 	if err != nil {
 		return err
@@ -358,7 +361,7 @@ func (js *JudgeServiceImpl) RunCase(
 		if err != nil {
 			i.Logger.Panic().Msgf("Database error, can't update verdict: %v", err)
 		}
-		(*js.pService).Put(i)
+		// (*js.pService).Put(i)
 		return true, nil
 	}
 
@@ -386,7 +389,7 @@ func (js *JudgeServiceImpl) RunCase(
 		if err != nil {
 			i.Logger.Panic().Msgf("Database error, can't update verdict: %v", err)
 		}
-		(*js.pService).Put(i)
+		// (*js.pService).Put(i)
 		return true, nil
 	}
 	return false, nil
@@ -401,21 +404,23 @@ func (js *JudgeServiceImpl) JudgeICPC(
 	var (
 		err error
 	)
-	defer func() {
-		if err != nil {
-			judgeutils.ReturnIsolateIfFail(js.pService, i, err)
-		}
-	}()
+	// defer func() {
+	// 	if err != nil {
+	// 		judgeutils.ReturnIsolateIfFail(js.pService, i, err)
+	// 	}
+	// }()
 
 	var (
 		curCpuTime     float64       = 0
 		curMemoryUsage memory.Memory = 0
 	)
+
 	for tc := 1; tc <= problemInfo.TestNum; tc += 1 {
 		done, e := js.RunCase(ctx, i, lang, req, problemInfo, tc, &curCpuTime, &curMemoryUsage)
-		err = e
-		if done {
-			(*js.pService).Put(i)
+		// err = e
+		if done || e != nil {
+			// (*js.pService).Put(i)
+			return err
 		}
 	}
 
@@ -423,7 +428,7 @@ func (js *JudgeServiceImpl) JudgeICPC(
 	if err != nil {
 		i.Logger.Panic().Msgf("Database error, can't update verdict: %v", err)
 	}
-	(*js.pService).Put(i)
+	// (*js.pService).Put(i)
 	i.Logger.Debug().Msgf("Judgement success!, return the isolate, number of isolate in the pool is: %d", (*js.pService).Len())
 
 	return nil
