@@ -29,6 +29,7 @@ func NewSubmissionRepository(db *mongo.Database) repository.SubmissionRepository
 func (sr *SubmissionRepositoryImpl) FindAllProblemSubmissionIds(ctx context.Context, problemId string) ([]string, error) {
 	filter := bson.M{"problem_id": problemId}
 	opts := options.Find().SetProjection(bson.M{"_id": 1})
+	config.GetLogger().Debug().Msgf("%v %v", filter, opts)
 
 	cursor, err := sr.collection.Find(ctx, filter, opts)
 	if err != nil {
@@ -63,7 +64,7 @@ func (sr *SubmissionRepositoryImpl) CreateSubmission(ctx context.Context, params
 	}
 	got, err := sr.collection.InsertOne(ctx, newSubmission)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	log := config.GetLogger()

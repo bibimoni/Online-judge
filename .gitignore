@@ -9,3 +9,4 @@ scoreboard_redis/
 **/main
 **/tmp/
 .DS_Store
+AGENTS.md

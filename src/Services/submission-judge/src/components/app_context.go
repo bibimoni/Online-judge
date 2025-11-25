@@ -8,17 +8,21 @@ import (
 
 type AppContext interface {
 	GetMainDbConnection() *mongo.Database
-	GetPool() *poolservice.PoolService
+	GetPool() poolservice.PoolService
 	GetRedis() *redis.Client
 }
 
 type appCtx struct {
 	database *mongo.Database
-	pool     *poolservice.PoolService
+	pool     poolservice.PoolService
 	rdb      *redis.Client
 }
 
-func NewAppContext(database *mongo.Database, pool *poolservice.PoolService, rdb *redis.Client) *appCtx {
+func NewAppContext(
+	database *mongo.Database,
+	pool poolservice.PoolService,
+	rdb *redis.Client,
+) *appCtx {
 	return &appCtx{
 		database,
 		pool,
@@ -30,7 +34,7 @@ func (ctx *appCtx) GetMainDbConnection() *mongo.Database {
 	return ctx.database
 }
 
-func (ctx *appCtx) GetPool() *poolservice.PoolService {
+func (ctx *appCtx) GetPool() poolservice.PoolService {
 	return ctx.pool
 }
 

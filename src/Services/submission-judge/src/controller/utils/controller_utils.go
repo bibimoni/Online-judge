@@ -8,6 +8,7 @@ import (
 	si "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/submission/impl"
 	checkerimpl "github.com/bibimoni/Online-judge/submission-judge/src/service/checker/impl"
 	interactorimpl "github.com/bibimoni/Online-judge/submission-judge/src/service/interactor/impl"
+	ii "github.com/bibimoni/Online-judge/submission-judge/src/service/isolate/impl"
 	ji "github.com/bibimoni/Online-judge/submission-judge/src/service/judge/impl"
 	pi "github.com/bibimoni/Online-judge/submission-judge/src/service/problem/impl"
 	"github.com/bibimoni/Online-judge/submission-judge/src/usecase/submission/interactor"
@@ -26,7 +27,8 @@ func InitInteractor(appContext appctx.AppContext) (*interactor.SubmissionInterac
 	checkerS := checkerimpl.NewCheckerService()
 	interactorS := interactorimpl.NewInteractorService()
 	redis := ri.NewRedisSubmissionRepository(appContext.GetRedis())
-	judgeSvc := ji.NewJudgeServiceImpl(appContext.GetPool(), problemSvc, evalRepo, checkerS, interactorS, redis, submissionRepo, sourcecodeRepo)
+	isolateS, _ := ii.NewIsolateService()
+	judgeSvc := ji.NewJudgeServiceImpl(appContext.GetPool(), problemSvc, evalRepo, checkerS, interactorS, redis, submissionRepo, sourcecodeRepo, isolateS)
 	if err != nil {
 		log.Error().Msgf("Can't initialize submit request, got error : %v", err)
 		return nil, err

@@ -29,7 +29,7 @@ type SubmissionRequest struct {
 	Sourcecode     string
 	SubmissionType domain.SubmissionType
 	ProblemId      string
-	IService       IsolateService
+	IService       IsolateService `json:"-"` // Ignore this field when enqueue to redis
 	LanguageId     string
 	EvalId         string
 }
