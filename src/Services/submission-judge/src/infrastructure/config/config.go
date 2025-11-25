@@ -15,8 +15,9 @@ type Config struct {
 		Name string
 	}
 	Redis struct {
-		Uri      string
-		Password string
+		Uri                string
+		Password           string
+		SubmissionQueueKey string
 	}
 	LogLevel        string
 	SandboxLogLevel string
@@ -46,6 +47,7 @@ func Load() (*Config, error) {
 	cfg.Database.Name = getEnv("SUBMISSION_MONGODB_DATABASE_NAME", "submissionjudgedb")
 	cfg.Redis.Uri = getEnv("SUBMISSION_REDIS_URI", "redis://:root@redissubmissionjudge:6379")
 	cfg.Redis.Password = getEnv("SUBMISSION_REDIS_PASSWORD", "")
+	cfg.Redis.SubmissionQueueKey = "SubmissionQueue"
 
 	cfg.Enviroment = getEnv("SUBMISSION_ENV", "Development")
 

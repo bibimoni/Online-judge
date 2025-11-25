@@ -4,34 +4,25 @@ import (
 	"github.com/bibimoni/Online-judge/submission-judge/src/common"
 	appctx "github.com/bibimoni/Online-judge/submission-judge/src/components"
 	helper "github.com/bibimoni/Online-judge/submission-judge/src/controller"
-	controller_utils "github.com/bibimoni/Online-judge/submission-judge/src/controller/utils"
 	"github.com/gin-gonic/gin"
 
 	"github.com/bibimoni/Online-judge/submission-judge/src/infrastructure/config"
 	usecase "github.com/bibimoni/Online-judge/submission-judge/src/usecase/submission"
+	"github.com/bibimoni/Online-judge/submission-judge/src/usecase/submission/interactor"
 )
 
-func HandleGetSubmissionRequest(appContext appctx.AppContext) gin.HandlerFunc {
-	submissionInteractor, err := controller_utils.InitInteractor(appContext)
-	if err != nil {
-		return nil
-	}
-
+func HandleGetSubmissionRequest(appContext appctx.AppContext, submissioninteractor *interactor.SubmissionInteractor) gin.HandlerFunc {
 	return common.InvokeUseCase(
 		toGetSubmissionType,
-		submissionInteractor.GetSubmission,
+		submissioninteractor.GetSubmission,
 		helper.WriteSuccessOutput,
 	)
 }
 
-func HandleGetProblemSubmissionRequest(appContext appctx.AppContext) gin.HandlerFunc {
-	submissionInteractor, err := controller_utils.InitInteractor(appContext)
-	if err != nil {
-		return nil
-	}
+func HandleGetProblemSubmissionRequest(appContext appctx.AppContext, submissioninteractor *interactor.SubmissionInteractor) gin.HandlerFunc {
 	return common.InvokeUseCase(
 		toGetProblemSubmissionType,
-		submissionInteractor.GetProblemSubmission,
+		submissioninteractor.GetProblemSubmission,
 		helper.WriteSuccessOutput,
 	)
 }

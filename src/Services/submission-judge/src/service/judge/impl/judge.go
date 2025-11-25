@@ -29,7 +29,7 @@ import (
 )
 
 type JudgeServiceImpl struct {
-	pService          *poolservice.PoolService
+	pService          poolservice.PoolService
 	problemService    problem.ProblemService
 	evalRepo          evalrepository.EvaluationRepository
 	checkerService    checker.CheckerService
@@ -37,6 +37,7 @@ type JudgeServiceImpl struct {
 	redisRepo         redisrepository.RedisSubmissionRepository
 	submissionRepo    subrepository.SubmissionRepository
 	sourcecodeRepo    screpository.SourcecodeRepository
+	isolateservice    isolateservice.IsolateService
 }
 
 var CompilationError = errors.New("Compile error!")
@@ -44,7 +45,7 @@ var JudgementFailedMessage = "failed to evaluate submission"
 var AcceptedMessage = "Accepted"
 
 func NewJudgeServiceImpl(
-	pService *poolservice.PoolService,
+	pService poolservice.PoolService,
 	problemService problem.ProblemService,
 	evalRepo evalrepository.EvaluationRepository,
 	checkerS checker.CheckerService,
@@ -52,8 +53,9 @@ func NewJudgeServiceImpl(
 	redis redisrepository.RedisSubmissionRepository,
 	submissionRepo subrepository.SubmissionRepository,
 	sourcecodeRepo screpository.SourcecodeRepository,
+	isolateservice isolateservice.IsolateService,
 ) *JudgeServiceImpl {
-	return &JudgeServiceImpl{
+	js := &JudgeServiceImpl{
 		pService:          pService,
 		problemService:    problemService,
 		evalRepo:          evalRepo,
@@ -62,11 +64,19 @@ func NewJudgeServiceImpl(
 		redisRepo:         redis,
 		submissionRepo:    submissionRepo,
 		sourcecodeRepo:    sourcecodeRepo,
+		isolateservice:    isolateservice,
 	}
+
+	numWorkers := pService.Len()
+	for range numWorkers {
+		go js.worker(context.Background())
+	}
+
+	return js
 }
 
 func NewJudgeService(
-	pService *poolservice.PoolService,
+	pService poolservice.PoolService,
 	problemService problem.ProblemService,
 	evalRepo evalrepository.EvaluationRepository,
 	checkerS checker.CheckerService,
@@ -74,12 +84,52 @@ func NewJudgeService(
 	redis redisrepository.RedisSubmissionRepository,
 	submissionRepo subrepository.SubmissionRepository,
 	sourcecodeRepo screpository.SourcecodeRepository,
+	isoisolateservice isolateservice.IsolateService,
 ) judge.JudgeService {
-	return NewJudgeServiceImpl(pService, problemService, evalRepo, checkerS, interactorS, redis, submissionRepo, sourcecodeRepo)
+	return NewJudgeServiceImpl(pService, problemService, evalRepo, checkerS, interactorS, redis, submissionRepo, sourcecodeRepo, isoisolateservice)
+}
+
+// This will crawl from redis and get submission request
+// This make sure that the amount of go routine is equals to the
+// number of isolate services
+func (js *JudgeServiceImpl) worker(ctx context.Context) {
+	for {
+		req, err := js.redisRepo.PopSubmissionJob(ctx)
+		if err != nil {
+			config.GetLogger().Error().Err(err).Msg("Redis connection error, retrying...")
+			time.Sleep(time.Second)
+			continue
+		}
+
+		req.IService = js.isolateservice
+
+		lang, err := store.DefaultStore.Get(req.LanguageId)
+		if err != nil {
+			config.GetLogger().Error().Err(err).Msg("Unknown language")
+			continue
+		}
+
+		problemInfo, err := js.problemService.Get(ctx, req.ProblemId)
+		if err != nil {
+			config.GetLogger().Error().Err(err).Msg("Unknown problem")
+			continue
+		}
+
+		err = js.JudgeStart(ctx, lang, req, problemInfo)
+		if err != nil {
+			config.GetLogger().Error().Err(err).Msg("Error processing submission")
+		}
+	}
+}
+
+// If this worked, i might have to remove the unnecessary parameter
+func (js *JudgeServiceImpl) Judge(ctx context.Context, req *isolateservice.SubmissionRequest, problemInfo *problem.ProblemServiceGetOutput) error {
+	return js.redisRepo.PushSubmissionJob(ctx, req)
 }
 
 // This will be the final wrapper to double check condition, at the end of the function
 // The real judge function will be called, and it will be asynchonous
+/*
 func (js *JudgeServiceImpl) Judge(ctx context.Context, req *isolateservice.SubmissionRequest, problemInfo *problem.ProblemServiceGetOutput) error {
 	lang, err := store.DefaultStore.Get((*req).LanguageId)
 	if err != nil {
@@ -90,6 +140,7 @@ func (js *JudgeServiceImpl) Judge(ctx context.Context, req *isolateservice.Submi
 	go js.JudgeStart(bgCtx, lang, req, problemInfo)
 	return nil
 }
+*/
 
 func (js *JudgeServiceImpl) JudgeStart(ctx context.Context, lang pkg.Language, req *isolateservice.SubmissionRequest, problemInfo *problem.ProblemServiceGetOutput) error {
 	// update PENDING to Websocket
@@ -100,7 +151,7 @@ func (js *JudgeServiceImpl) JudgeStart(ctx context.Context, lang pkg.Language, r
 	}
 
 	// This should be here, inside judgeStart
-	i, err := (*js.pService).Get()
+	i, err := js.pService.Get()
 	if err != nil {
 		// Very unlikely, happen when channel is closed
 		err = js.updateFinal(ctx, req.EvalId, domain.JUDGEMENT_FAILED, 0, 0, 0, 0, JudgementFailedMessage)
@@ -110,25 +161,25 @@ func (js *JudgeServiceImpl) JudgeStart(ctx context.Context, lang pkg.Language, r
 		return err
 	}
 
-	defer (*js.pService).Put(i)
-	defer i.Logger.Debug().Msgf("Returning isolate to pool, number in pool will be: %d", (*js.pService).Len()+1)
+	defer js.pService.Put(i)
+	defer i.Logger.Debug().Msgf("Returning isolate to pool, number in pool will be: %d", js.pService.Len()+1)
 
-	i.Logger.Debug().Msgf("Took out an isolate, number of isolate remains in the pool is: %d", (*js.pService).Len())
+	i.Logger.Debug().Msgf("Took out an isolate, number of isolate remains in the pool is: %d", js.pService.Len())
 	// Prepare all the nessessary files
 	err = js.Prep(ctx, i, lang, req, problemInfo)
 	if err != nil {
 		i.Logger.Debug().Msgf("Error: %v", err)
-		// i.Logger.Debug().Msgf("Judgement failed or CompilationError, return the isolate, number of isolate in the pool is: %d", (*js.pService).Len())
+		// i.Logger.Debug().Msgf("Judgement failed or CompilationError, return the isolate, number of isolate in the pool is: %d", js.pService.Len())
 		return err
 	}
 
-	i.Logger.Debug().Msgf("Preparation success!, keep using the isolate, number of isolate in the pool is: %d", (*js.pService).Len())
+	i.Logger.Debug().Msgf("Preparation success!, keep using the isolate, number of isolate in the pool is: %d", js.pService.Len())
 
 	switch req.SubmissionType {
 	case domain.SubmissionType(domain.ICPC):
 		err = js.JudgeICPC(ctx, i, lang, req, problemInfo)
 	default:
-		// (*js.pService).Put(i)
+		// js.pService.Put(i)
 		i.Logger.Error().Msgf("Other submission type is not supported")
 		err = judge.UnsupportedSubmissionType
 	}
@@ -361,7 +412,7 @@ func (js *JudgeServiceImpl) RunCase(
 		if err != nil {
 			i.Logger.Panic().Msgf("Database error, can't update verdict: %v", err)
 		}
-		// (*js.pService).Put(i)
+		// js.pService.Put(i)
 		return true, nil
 	}
 
@@ -389,7 +440,7 @@ func (js *JudgeServiceImpl) RunCase(
 		if err != nil {
 			i.Logger.Panic().Msgf("Database error, can't update verdict: %v", err)
 		}
-		// (*js.pService).Put(i)
+		// js.pService.Put(i)
 		return true, nil
 	}
 	return false, nil
@@ -419,7 +470,7 @@ func (js *JudgeServiceImpl) JudgeICPC(
 		done, e := js.RunCase(ctx, i, lang, req, problemInfo, tc, &curCpuTime, &curMemoryUsage)
 		// err = e
 		if done || e != nil {
-			// (*js.pService).Put(i)
+			// js.pService.Put(i)
 			return err
 		}
 	}
@@ -428,8 +479,8 @@ func (js *JudgeServiceImpl) JudgeICPC(
 	if err != nil {
 		i.Logger.Panic().Msgf("Database error, can't update verdict: %v", err)
 	}
-	// (*js.pService).Put(i)
-	i.Logger.Debug().Msgf("Judgement success!, return the isolate, number of isolate in the pool is: %d", (*js.pService).Len())
+	// js.pService.Put(i)
+	i.Logger.Debug().Msgf("Judgement success!, return the isolate, number of isolate in the pool is: %d", js.pService.Len())
 
 	return nil
 }

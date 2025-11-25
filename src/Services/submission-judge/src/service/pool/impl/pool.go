@@ -14,7 +14,7 @@ import (
 
 type PoolServiceImpl struct {
 	pool           *domain.Pool
-	isolateService *isolateservice.IsolateService
+	isolateService isolateservice.IsolateService
 }
 
 func NewPoolSerivce() (poolservice.PoolService, error) {
@@ -40,7 +40,7 @@ func NewPoolServiceImpl() (*PoolServiceImpl, error) {
 		pool: &domain.Pool{
 			Isolates: make(chan *domain.Isolate, cfg.Judge.Amount),
 		},
-		isolateService: &is,
+		isolateService: is,
 	}
 
 	log := config.GetLogger()

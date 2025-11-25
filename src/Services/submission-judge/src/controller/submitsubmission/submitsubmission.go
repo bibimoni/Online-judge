@@ -4,7 +4,6 @@ import (
 	"github.com/bibimoni/Online-judge/submission-judge/src/common"
 	appctx "github.com/bibimoni/Online-judge/submission-judge/src/components"
 	"github.com/bibimoni/Online-judge/submission-judge/src/controller"
-	controller_utils "github.com/bibimoni/Online-judge/submission-judge/src/controller/utils"
 	domain "github.com/bibimoni/Online-judge/submission-judge/src/domain/entitiy"
 	"github.com/gin-gonic/gin"
 
@@ -12,17 +11,13 @@ import (
 
 	"github.com/bibimoni/Online-judge/submission-judge/src/infrastructure/config"
 	"github.com/bibimoni/Online-judge/submission-judge/src/usecase/submission"
+	"github.com/bibimoni/Online-judge/submission-judge/src/usecase/submission/interactor"
 )
 
-func HandleSubmitSubmissionRequest(appContext appctx.AppContext) gin.HandlerFunc {
-	submissionInteractor, err := controller_utils.InitInteractor(appContext)
-	if err != nil {
-		return nil
-	}
-
+func HandleSubmitSubmissionRequest(appContext appctx.AppContext, submissioninteractor *interactor.SubmissionInteractor) gin.HandlerFunc {
 	return common.InvokeUseCase(
 		toSubmitSubmissionType,
-		submissionInteractor.SubmitSubmission,
+		submissioninteractor.SubmitSubmission,
 		helper.WriteCreatedOutput,
 	)
 }

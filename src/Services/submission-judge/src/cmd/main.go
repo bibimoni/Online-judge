@@ -38,7 +38,7 @@ func main() {
 		log.Fatal().Err(err).Msgf("Can't initialize redis client")
 	}
 
-	appCtx := appctx.NewAppContext(client.Database(cfg.Database.Name), &pool, redis)
+	appCtx := appctx.NewAppContext(client.Database(cfg.Database.Name), pool, redis)
 
 	store.DefaultStore = si.NewStoreWithDefaultLangs()
 

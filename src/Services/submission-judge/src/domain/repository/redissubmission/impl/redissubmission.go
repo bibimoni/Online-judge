@@ -7,6 +7,7 @@ import (
 
 	repository "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/redissubmission"
 	"github.com/bibimoni/Online-judge/submission-judge/src/infrastructure/config"
+	isolateservice "github.com/bibimoni/Online-judge/submission-judge/src/service/isolate"
 	usecase "github.com/bibimoni/Online-judge/submission-judge/src/usecase/wssubmission"
 	"github.com/redis/go-redis/v9"
 )
@@ -70,4 +71,35 @@ func (rs *RedisSubmissionRepositoryImpl) Subscribe(ctx context.Context, channelI
 		}
 	}()
 	return out, nil
+}
+
+func (rs *RedisSubmissionRepositoryImpl) PushSubmissionJob(ctx context.Context, req *isolateservice.SubmissionRequest) error {
+	data, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	return rs.rdb.RPush(ctx, cfg.Redis.SubmissionQueueKey, data).Err()
+}
+
+func (rs *RedisSubmissionRepositoryImpl) PopSubmissionJob(ctx context.Context) (*isolateservice.SubmissionRequest, error) {
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := rs.rdb.BLPop(ctx, 0, cfg.Redis.SubmissionQueueKey).Result()
+
+	var req isolateservice.SubmissionRequest
+	// res[1] is value
+	err = json.Unmarshal([]byte(res[1]), &req)
+	if err != nil {
+		return nil, err
+	}
+	return &req, nil
 }
