@@ -1,6 +1,7 @@
-FROM golang:latest AS base
+FROM golang:latest
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     latexmk \
     texlive-xetex \
     texlive-latex-recommended \
@@ -11,44 +12,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     perl \
     wget \
     make \
- && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Go dependencies
-COPY go.mod go.sum ./
+COPY go.mod go.sum .
 RUN go mod download
 
 COPY . .
 RUN go mod tidy
 
-FROM base AS dev
+RUN ["mkdir", "/storage"]
 RUN go install github.com/air-verse/air@latest
-RUN mkdir /storage
 EXPOSE 3000
+# RUN air init
+# CMD ["go", "run", "cmd/main.go"]
 CMD ["air", "-c", ".air.toml"]
-
-FROM base AS dev_ssh
-WORKDIR /app
-RUN CGO_ENABLED=0 GOMAXPROCS=1 go build -p 1 -o /go/bin/main ./cmd/main.go
-
-EXPOSE 3000
-
-CMD ["/go/bin/main"]
-
-FROM base AS builder
-# RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o main ./cmd/main.go
-
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    GOMAXPROCS=1 \
-    go build -o main ./cmd/main.go
-
-FROM builder AS prod
-WORKDIR /root/
-
-COPY --from=builder /app/main .
-RUN mkdir /storage
-EXPOSE 3000
-
-ENTRYPOINT ["./main"]
 
