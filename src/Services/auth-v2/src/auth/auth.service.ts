@@ -10,7 +10,7 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private prisma: PrismaService
-  ) {}
+  ) { }
   async findUserByUsername(username: string) {
     return this.prisma.user.findUnique({
       where: { username }
@@ -59,7 +59,7 @@ export class AuthService {
     try {
       const decoded = this.jwtService.verify(refreshToken);
       const user = await this.usersService.findByEmail(decoded.email);
-      
+
       if (!user) {
         throw new UnauthorizedException('User not found');
       }

@@ -84,44 +84,70 @@ services:
       - ./problem-db-data:/data/db
     networks:
       - online-judge-network
-        #  contest:
-        #    build: ./src/Services/contest/
-        #    container_name: contest
-        #    ports:
-        #      - '2000:2000'
-        #    depends_on:
-        #      - contestmongodb
-        #      - scoreboard_redis
-        #    env_file:
-        #      - ./.env
-        #    volumes:
-        #      - ./src/Services/contest:/app
-        #    networks:
-        #      - online-judge-network
-        #  contestmongodb:
-        #    image: mongo
-        #    container_name: contest-mongo
-        #    restart: always
-        #    environment:
-        #    #   MONGO_INITDB_ROOT_USERNAME: root 
-        #    #   MONGO_INITDB_ROOT_PASSWORD: root
-        #      MONGO_INITDB_DATABASE: contest-db
-        #    ports:
-        #      - '47017:27017'
-        #    volumes:
-        #      - ./contest-db-data:/data/db
-        #    networks:
-        #      - online-judge-network
-        #  scoreboard_redis:
-        #    image: redis
-        #    container_name: scoreboard_redis
-        #    ports:
-        #      - "6380:6379"
-        #    restart: always
-        #    volumes:
-        #      - ./scoreboard_redis:/data
-        #    networks:
-        #      - online-judge-network
+  contest:
+    build: ./src/Services/contest/
+    container_name: contest
+    ports:
+      - '2000:2000'
+    depends_on:
+      - contestmongodb
+      - scoreboard_redis
+    env_file:
+      - ./.env
+    volumes:
+      - ./src/Services/contest:/app
+    networks:
+      - online-judge-network
+  contestmongodb:
+    image: mongo
+    container_name: contest-mongo
+    restart: always
+    environment:
+    #   MONGO_INITDB_ROOT_USERNAME: root 
+    #   MONGO_INITDB_ROOT_PASSWORD: root
+      MONGO_INITDB_DATABASE: contest-db
+    ports:
+      - '47017:27017'
+    volumes:
+      - ./contest-db-data:/data/db
+    networks:
+      - online-judge-network
+  scoreboard_redis:
+    image: redis
+    container_name: scoreboard_redis
+    ports:
+      - "6380:6379"
+    restart: always
+    volumes:
+      - ./scoreboard_redis:/data
+    networks:
+      - online-judge-network
+  auth:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "50051:50051"
+    depends_on:
+      - mypostgres
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:postgres@mypostgres:5432/auth_db?schema=public
+      - JWT_SECRET=your_jwt_secret
+    volumes:
+      - .src/Services/auth-v2:/app
+      - /app/node_modules
+    restart: unless-stopped
+  mypostgres:
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=auth_db
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
 networks:
   online-judge-network:
     driver: bridge

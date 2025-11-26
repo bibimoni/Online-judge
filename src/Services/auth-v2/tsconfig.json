@@ -11,8 +11,15 @@
     "outDir": "./dist",
     "baseUrl": "./",
     "paths": {
-      "src/*": ["src/*"],
-      "tests/*": ["__tests__/*"]
+      "src/*": [
+        "src/*"
+      ],
+      "tests/*": [
+        "__tests__/*"
+      ],
+      "@prisma/client": [
+        "generated/client"
+      ]
     },
     "incremental": true,
     "skipLibCheck": true,
@@ -22,7 +29,6 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false
   },
-
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
