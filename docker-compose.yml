@@ -135,9 +135,11 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@mypostgres:5432/auth_db?schema=public
       - JWT_SECRET=your_jwt_secret
     volumes:
-      - .src/Services/auth-v2:/app
+      - ./src/Services/auth-v2:/app
       - /app/node_modules
     restart: unless-stopped
+    networks:
+      - online-judge-network
   mypostgres:
     image: postgres:latest
     ports:
@@ -148,6 +150,8 @@ services:
       - POSTGRES_DB=auth_db
     volumes:
       - ./postgres-data:/var/lib/postgresql/data
+    networks:
+      - online-judge-network
 networks:
   online-judge-network:
     driver: bridge
