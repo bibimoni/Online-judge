@@ -17,9 +17,6 @@
       "tests/*": [
         "__tests__/*"
       ],
-      "@prisma/client": [
-        "generated/client"
-      ]
     },
     "incremental": true,
     "skipLibCheck": true,
