@@ -135,7 +135,7 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@mypostgres:5432/auth_db?schema=public
       - JWT_SECRET=your_jwt_secret
     volumes:
-      - ./:/app
+      - .src/Services/auth-v2:/app
       - /app/node_modules
     restart: unless-stopped
   mypostgres:
