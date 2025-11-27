@@ -9,6 +9,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Role {
+  id          Int          @id @default(autoincrement())
+  name        String       @unique
+  permissions Permission[]
+  users       User[]
+}
+
+model Permission {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  roles Role[]
+}
+
 model User {
   id           Int      @id @default(autoincrement())
   username     String   @unique
@@ -18,4 +31,6 @@ model User {
   refreshToken String?  @unique
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  roleId       Int?
+  role         Role?    @relation(fields: [roleId], references: [id])
 }
