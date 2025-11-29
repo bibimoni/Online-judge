@@ -23,10 +23,10 @@ func main() {
 	r.Mount("/", proxy.LoginApiProxy())
 
 	r.Route("/api/v1/submission", func(r chi.Router) {
-		r.Method("GET", "/view/*", proxy.SubmissionApiProxy())
-		r.Method("GET", "/problem/view/*", proxy.SubmissionApiProxy())
-		r.With(middlewares.WithAuth).Method("POST", "/submit", proxy.SubmissionApiProxy())
-		r.Handle("/ws", proxy.WSSubmissionProxy(cfg.Endpoints.Submission))
+		r.With(middlewares.WithPermission("view_submission")).Method("GET", "/view/*", proxy.SubmissionApiProxy())
+		r.With(middlewares.WithPermission("view_problem")).Method("GET", "/problem/view/*", proxy.SubmissionApiProxy())
+		r.With(middlewares.WithPermission("submit_code")).Method("POST", "/submit", proxy.SubmissionApiProxy())
+		r.With(middlewares.WithPermission("view_submission")).Handle("/ws", proxy.WSSubmissionProxy())
 	})
 
 	r.Route("/problem", func(r chi.Router) {

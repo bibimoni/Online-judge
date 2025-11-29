@@ -1,96 +1,45 @@
-import { Controller, Post, Get, Body, Param, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import { Controller, Get, UseGuards, Request } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt.strategy';
 import { UsersService } from './users.service';
-import { CreateUserDto } from './dto/create-user.dto';
-import { GetUser } from 'src/common/decorators';
-import { JwtPayLoad } from 'src/common/model';
 
 @ApiTags('Users')
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
-  @Post()
-  @ApiOperation({ summary: 'Create a new user' })
-  @ApiBody({ type: CreateUserDto })
-  @ApiResponse({ 
-    status: 201, 
-    description: 'User created successfully',
+  // Remove direct user creation, use /auth/register instead
+
+  // Remove find by email for privacy and security
+
+  @Get('profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get current authenticated user profile' })
+  @ApiBearerAuth('JWT-auth')
+  @ApiResponse({
+    status: 200,
+    description: 'Current user info',
     schema: {
       type: 'object',
       properties: {
-        code: { type: 'number', example: 0 },
-        user: {
-          type: 'object',
-          properties: {
-            id: { type: 'number', example: 1 },
-            username: { type: 'string', example: 'john_doe' },
-            name: { type: 'string', example: 'John Doe' }
-          }
-        }
+        id: { type: 'number' },
+        username: { type: 'string' },
+        email: { type: 'string' },
+        name: { type: 'string' },
+        role: { type: 'string' }
       }
     }
   })
-  @ApiResponse({ status: 400, description: 'Bad request - validation failed' })
-  @ApiResponse({ status: 409, description: 'User already exists' })
-  async create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
-  }
+  async getProfile(@Request() req) {
+    const dbUser = await this.usersService.findById(req.user.id);
+    const role = await this.usersService.findRoleById(dbUser.roleId);
 
-  @Get('email/:email')
-  @ApiOperation({ summary: 'Find user by email' })
-  @ApiBearerAuth('JWT-auth')
-  @ApiParam({ name: 'email', description: 'User email address' })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'User found',
-    schema: {
-      type: 'object',
-      properties: {
-        id: { type: 'number', example: 1 },
-        email: { type: 'string', example: 'user@example.com' },
-        name: { type: 'string', example: 'John Doe' }
-      }
-    }
-  })
-  @ApiResponse({ status: 404, description: 'User not found' })
-  async findByEmail(@Param('email') email: string) {
-    console.log('Finding user by email:', email);
-    return this.usersService.findByEmail(email);
-  }
-
-  @Get(':id')
-  @ApiOperation({ summary: 'Get current authenticated user' })
-  @ApiBearerAuth('JWT-auth')
-  async getme(@Param('id') id: number) {
-    const user = await this.usersService.findById(id);
     return {
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      name: user.name,
+      id: dbUser.id,
+      username: dbUser.username,
+      email: dbUser.email,
+      name: dbUser.name,
+      role: role ? role.name : null
     };
   }
-
-  // @Get(':id')
-  // @ApiOperation({ summary: 'Find user by ID' })
-  // @ApiBearerAuth('JWT-auth')
-  // @ApiParam({ name: 'id', description: 'User ID' })
-  // @ApiResponse({ 
-  //   status: 200, 
-  //   description: 'User found',
-  //   schema: {
-  //     type: 'object',
-  //     properties: {
-  //       id: { type: 'number', example: 1 },
-  //       email: { type: 'string', example: 'user@example.com' },
-  //       name: { type: 'string', example: 'John Doe' }
-  //     }
-  //   }
-  // })
-  // @ApiResponse({ status: 404, description: 'User not found' })
-  // async findById(@Param('id') id: string) {
-  //   return this.usersService.findById(parseInt(id));
-  // }
 }

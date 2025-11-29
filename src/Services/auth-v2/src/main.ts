@@ -2,18 +2,18 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { config as appconfig } from './config/config';
 
 async function bootstrap() {
+  appconfig.load()
   const app = await NestFactory.create(AppModule);
-  
+
   // Enable CORS for cross-origin requests
   app.enableCors();
-
   // Swagger configuration
   const config = new DocumentBuilder()
     .setTitle('Auth Service API')
-    .setDescription('Authentication microservice API documentation')
+    .setDescription('Auth service api documentation')
     .setVersion('2.0')
     .addBearerAuth(
       {
@@ -29,17 +29,12 @@ async function bootstrap() {
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
-  
-  // Global validation pipe
+
+
   app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    forbidNonWhitelisted: true,
-    transform: true,
-  }));
-  
-  // Global exception filter
-  app.useGlobalFilters(new AllExceptionsFilter());
-  
+    transform: true
+  }))
+
   const port = process.env.PORT || 50051;
   await app.listen(port);
   console.log(`Auth service is running on port ${port}`);

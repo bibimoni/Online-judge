@@ -37,7 +37,12 @@ func newProxy(endpoint string) http.Handler {
 	})
 }
 
-func WSSubmissionProxy(endpoint string) http.Handler {
+func WSSubmissionProxy() http.Handler {
+	cfg := config.Load()
+	return WSProxy(cfg.Endpoints.Submission)
+}
+
+func WSProxy(endpoint string) http.Handler {
 	target, err := url.Parse(endpoint)
 	if err != nil {
 		panic("Invalid proxy URL: " + err.Error())

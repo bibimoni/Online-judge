@@ -1,73 +1,100 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { UsersService } from '../users/users.service';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private usersService: UsersService,
-    private jwtService: JwtService,
+    public jwtService: JwtService,
     private prisma: PrismaService
   ) { }
+
   async findUserByUsername(username: string) {
-    return this.prisma.user.findUnique({
-      where: { username }
+    return this.prisma.user.findUnique({ where: { username } });
+  }
+
+  async register(registerDto: RegisterDto) {
+    const { username, email, password } = registerDto;
+    const existingUser = await this.prisma.user.findFirst({
+      where: { OR: [{ username }, { email }] }
     });
-  }
-
-  async validateUser(username: string, password: string) {
-    const user = await this.findUserByUsername(username);
-    if (user && (await bcrypt.compare(password, user.password))) {
-      const { password, ...result } = user;
-      return result;
+    if (existingUser) {
+      throw new BadRequestException('Username or email already exists');
     }
-    return null;
+    const hashedPassword = await bcrypt.hash(password, 12);
+    const defaultRole = await this.prisma.role.findUnique({ where: { name: 'contestant' } });
+    if (!defaultRole) throw new BadRequestException('Default role not found');
+    const user = await this.prisma.user.create({
+      data: {
+        username,
+        email,
+        password: hashedPassword,
+        roleId: defaultRole.id,
+        name: username,
+      },
+    });
+    return { user_id: user.id };
   }
 
-  async login(username: string, password: string) {
-    const user = await this.validateUser(username, password);
-    if (!user) {
+  async login(loginDto: LoginDto) {
+    const user = await this.findUserByUsername(loginDto.username);
+    if (!user || !(await bcrypt.compare(loginDto.password, user.password))) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    const payload = { username: user.username, sub: user.id };
-    return this.jwtService.sign(payload)
+    const role = await this.prisma.role.findUnique({
+      where: { id: user.roleId },
+      include: { permissions: true }
+    });
+    const permissions = role ? role.permissions.map(p => p.name) : [];
+    const payload = {
+      id: user.id,
+      username: user.username,
+      role: role ? role.name : null,
+      permissions,
+    };
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+    return { access_token: accessToken };
   }
 
-  async validateToken(token: string) {
+  async verifyPermission(payload: any, requiredPermission: string) {
     try {
-      const decoded = this.jwtService.verify(token);
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.id },
+        include: { role: { include: { permissions: true } } }
+      });
 
-      console.log('Decoded token:', decoded);
-      return {
-        code: 0,
-        user: {
-          username: decoded.username,
-          id: decoded.sub,
-        }
+      if (!user || !user.role) return { allowed: false };
+
+      if (requiredPermission == "*") {
+        return { allowed: "*", user: payload }
       }
-    } catch (error) {
-      return {
-        code: 1,
-        message: 'Invalid token'
-      };
+      const hasPermission = user.role.permissions.some(p => p.name === requiredPermission);
+      return { allowed: hasPermission, user: payload };
+
+    } catch (e) {
+      throw new UnauthorizedException('Invalid token');
     }
   }
 
-  async refreshToken(refreshToken: string) {
-    try {
-      const decoded = this.jwtService.verify(refreshToken);
-      const user = await this.usersService.findByEmail(decoded.email);
+  async getProfile(userId: number) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+    const role = user.roleId ? await this.prisma.role.findUnique({ where: { id: user.roleId } }) : null;
+    const { password, refreshToken, ...result } = user;
+    return { ...result, role: role ? role.name : null };
+  }
 
-      if (!user) {
-        throw new UnauthorizedException('User not found');
-      }
-
-      const payload = { username: user.username, sub: user.id };
-      return this.jwtService.sign(payload);
-    } catch (error) {
-      throw new UnauthorizedException('Invalid refresh token');
-    }
+  async getPermissions(userId: number) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+    const role = user.roleId ? await this.prisma.role.findUnique({
+      where: { id: user.roleId },
+      include: { permissions: true }
+    }) : null;
+    const permissions = role ? role.permissions.map(p => p.name) : [];
+    return { role: role ? role.name : null, permissions };
   }
 }
