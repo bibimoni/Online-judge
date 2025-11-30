@@ -37,7 +37,9 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msgf("Can't initialize redis client")
 	}
+
 	appCtx := appctx.NewAppContext(client.Database(cfg.Database.Name), pool, redis)
+
 	workerService := workerimpl.NewWorkerService(
 		appCtx.GetRedisRepo(),
 		appCtx.GetJudgeService(),
@@ -48,12 +50,14 @@ func main() {
 	workerService.Start()
 
 	store.DefaultStore = si.NewStoreWithDefaultLangs()
+
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.Use(gin.Logger())
 	v1 := r.Group("/api/v1")
 	gin.SetMode(gin.DebugMode)
 	router.RegisterRouter(v1, appCtx)
+
 	serverAddr := cfg.Server.Host + ":" + cfg.Server.Port
 	log.Info().Msgf("Submission-Judge server is listening on: %s", serverAddr)
 	srv := &http.Server{
@@ -71,9 +75,10 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Info().Msg("Shutting down server...")
 
+	log.Info().Msg("Shutting down server...")
 	workerService.Stop()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {

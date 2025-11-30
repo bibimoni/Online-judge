@@ -1,4 +1,5 @@
 import { PrismaClient } from '../generated/client';
+import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
@@ -89,6 +90,24 @@ async function main() {
       },
     });
   }
+
+  // Create Admin User
+  const password = await bcrypt.hash('bkac', 10);
+  await prisma.user.upsert({
+    where: { username: 'admin' },
+    update: {
+      password: password,
+      role: { connect: { name: 'admin' } },
+    },
+    create: {
+      username: 'admin',
+      name: 'Admin User',
+      email: 'admin@example.com',
+      password: password,
+      role: { connect: { name: 'admin' } },
+    },
+  });
+  console.log('Admin user seeded');
 }
 
 main().finally(() => prisma.$disconnect());
