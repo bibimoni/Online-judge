@@ -6,7 +6,6 @@ import (
 	"github.com/bibimoni/Online-judge/submission-judge/src/controller/submitsubmission"
 	controller_utils "github.com/bibimoni/Online-judge/submission-judge/src/controller/utils"
 	"github.com/bibimoni/Online-judge/submission-judge/src/controller/websocketsubmission"
-	"github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/redissubmission/impl"
 	"github.com/bibimoni/Online-judge/submission-judge/src/infrastructure/config"
 	"github.com/bibimoni/Online-judge/submission-judge/src/usecase/wssubmission/interactor"
 	"github.com/gin-gonic/gin"
@@ -18,9 +17,7 @@ func RegisterRouter(group *gin.RouterGroup, appContext appctx.AppContext) {
 		config.GetLogger().Panic().Err(err).Msg("Can't initialize interactor for submission")
 	}
 
-	rdb := appContext.GetRedis()
-	rrepo := impl.NewRedisSubmissionRepository(rdb)
-	wsSubmissionInteractor := interactor.NewWSSubmissionInteractor(rrepo)
+	wsSubmissionInteractor := interactor.NewWSSubmissionInteractor(appContext.GetRedisRepo())
 
 	submission := group.Group("/submission")
 	submission.POST("/submit", transportsubmitsubmission.HandleSubmitSubmissionRequest(appContext, submissionInteractor))

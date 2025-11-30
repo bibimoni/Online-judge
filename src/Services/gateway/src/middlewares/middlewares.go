@@ -33,6 +33,7 @@ func WithAuth(next http.Handler) http.Handler {
 			Timeout: 10 * time.Second,
 			Headers: map[string]string{
 				"Authorization": r.Header.Get("Authorization"),
+				"Content-Type":  "application/json",
 			}, Body: nil,
 		})
 

@@ -55,7 +55,7 @@ export class AuthController {
     type: PermissionVerifyDto
   })
   @ApiBearerAuth("JWT-auth")
-  async verify(@Request() req: any, @Body() body: { permission: string }) {
+  async verify(@Request() req: any, @Body() body: PermissionVerifyDto) {
     if (!req.user) {
       throw new UnauthorizedException()
     }

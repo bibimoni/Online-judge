@@ -14,7 +14,6 @@ import (
 )
 
 type VerifyRequestBody struct {
-	Token      string `json:"token"`
 	Permission string `json:"permission"`
 }
 
@@ -48,21 +47,20 @@ func WithPermission(permission string) func(http.Handler) http.Handler {
 			}
 
 			reqBody := VerifyRequestBody{
-				Token:      token,
 				Permission: permission,
 			}
-
-			jsonBody, _ := json.Marshal(reqBody)
 
 			res, err := common.SendRequest[VerifyResponseBody](r.Context(), common.APIRequest{
 				Method:  "POST",
 				URL:     fmt.Sprintf("%s/auth/verify", authURL),
 				Timeout: 10 * time.Second,
 				Headers: map[string]string{
-					"Content-Type": "application/json",
+					"Authorization": r.Header.Get("Authorization"),
+					"Content-Type":  "application/json",
 				},
-				Body: bytes.NewBuffer(jsonBody),
+				Body: reqBody,
 			})
+			config.GetLogger().Debug().Err(err).Msgf("Response: %v", res)
 
 			if err != nil {
 				if res != nil {
