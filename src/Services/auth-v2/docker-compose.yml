@@ -8,9 +8,13 @@ services:
       - "50051:50051"
     depends_on:
       - mypostgres
+    depends_on:
+      - mypostgres
+    env_file:
+      - ../../../.env
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=postgresql://postgres:postgres@mypostgres:5432/auth_db?schema=public
+      - AUTH_DATABASE_URL=postgresql://postgres:postgres@mypostgres:5432/auth_db?schema=public
       - JWT_SECRET=your_jwt_secret
     volumes:
       - ./:/app

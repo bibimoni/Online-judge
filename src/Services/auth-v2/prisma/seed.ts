@@ -92,7 +92,7 @@ async function main() {
   }
 
   // Create Admin User
-  const password = await bcrypt.hash('bkac', 10);
+  const password = await bcrypt.hash('bkacbkac', 10);
   await prisma.user.upsert({
     where: { username: 'admin' },
     update: {
