@@ -3,7 +3,7 @@
 ```bash
 docker-compose run --rm \
   -p 8001:8001 \
-  -e SUBMISSION_DISTRIBUTED_JUDGING=true \
+  -e SUBMISSION_IS_MAIN_JUDGE=true \
   -e SUBMISSION_JUDGE_PROBLEM_DIR=/tmp/cache \ # you can change to whatever you like
   -e SUBMISSION_PORT=8001 \ # submission port
   -e SUBMISSION_REDIS_URI=redissubmissionjudge:6379 \ # the main judge's Redis address
