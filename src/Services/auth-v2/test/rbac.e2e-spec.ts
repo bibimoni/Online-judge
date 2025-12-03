@@ -1,0 +1,105 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication } from '@nestjs/common';
+import * as request from 'supertest';
+import { AppModule } from '../src/app.module';
+import { PrismaService } from '../src/prisma/prisma.service';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
+
+describe('RBAC (e2e)', () => {
+    let app: INestApplication;
+    let prisma: PrismaService;
+    let adminToken: string;
+    let contestantToken: string;
+
+    beforeAll(async () => {
+        const moduleFixture: TestingModule = await Test.createTestingModule({
+            imports: [AppModule],
+        }).compile();
+
+        app = moduleFixture.createNestApplication();
+        await app.init();
+
+        prisma = app.get<PrismaService>(PrismaService);
+
+        // Ensure DB connection
+        await prisma.$connect();
+
+        // Cleanup
+        await prisma.user.deleteMany({ where: { username: { in: ['admin_e2e', 'contestant_e2e'] } } });
+
+        // Create Admin
+        await request(app.getHttpServer())
+            .post('/auth/register')
+            .send({ username: 'admin_e2e', password: 'password', email: 'admin_e2e@test.com' });
+
+        const adminUser = await prisma.user.findUnique({ where: { username: 'admin_e2e' } });
+        await prisma.user.update({
+            where: { id: adminUser.id },
+            data: { role: { connect: { name: 'admin' } } }
+        });
+
+        const adminLogin = await request(app.getHttpServer())
+            .post('/auth/login')
+            .send({ username: 'admin_e2e', password: 'password' });
+        adminToken = adminLogin.body.access_token;
+
+        // Create Contestant
+        await request(app.getHttpServer())
+            .post('/auth/register')
+            .send({ username: 'contestant_e2e', password: 'password', email: 'contestant_e2e@test.com' });
+
+        const contestantLogin = await request(app.getHttpServer())
+            .post('/auth/login')
+            .send({ username: 'contestant_e2e', password: 'password' });
+        contestantToken = contestantLogin.body.access_token;
+    });
+
+    afterAll(async () => {
+        await prisma.user.deleteMany({ where: { username: { in: ['admin_e2e', 'contestant_e2e'] } } });
+        await prisma.$disconnect();
+        await app.close();
+    });
+
+    it('/auth/verify (POST) - Admin should have manage_users permission', () => {
+        return request(app.getHttpServer())
+            .post('/auth/verify')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({ permission: 'manage_users' })
+            .expect(201)
+            .expect((res) => {
+                expect(res.body.allowed).toBe(true);
+            });
+    });
+
+    it('/auth/verify (POST) - Contestant should NOT have manage_users permission', () => {
+        return request(app.getHttpServer())
+            .post('/auth/verify')
+            .set('Authorization', `Bearer ${contestantToken}`)
+            .send({ permission: 'manage_users' })
+            .expect(201)
+            .expect((res) => {
+                expect(res.body.allowed).toBe(false);
+            });
+    });
+
+    it('/auth/verify (POST) - Contestant should have submit_code permission', () => {
+        return request(app.getHttpServer())
+            .post('/auth/verify')
+            .set('Authorization', `Bearer ${contestantToken}`)
+            .send({ permission: 'submit_code' })
+            .expect(201)
+            .expect((res) => {
+                expect(res.body.allowed).toBe(true);
+            });
+    });
+
+    it('/auth/verify (POST) - Invalid token should return 401', () => {
+        return request(app.getHttpServer())
+            .post('/auth/verify')
+            .set('Authorization', 'Bearer invalid_token')
+            .send({ permission: 'submit_code' })
+            .expect(401);
+    });
+});

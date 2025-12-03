@@ -26,4 +26,14 @@ export class UsersService {
   async findById(user_id: number) { // Changed from string to number
     return this.prisma.user.findUnique({ where: { id: user_id } });
   }
+
+
+  async findRoleById(roleId: number) {
+    const role = await this.prisma.role.findUnique({
+      where: { id: roleId },
+      include: { permissions: true }
+    });
+    return role;
+  }
+
 }

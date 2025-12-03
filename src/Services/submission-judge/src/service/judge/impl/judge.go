@@ -24,7 +24,7 @@ import (
 	judgeutils "github.com/bibimoni/Online-judge/submission-judge/src/service/judge/utils"
 	poolservice "github.com/bibimoni/Online-judge/submission-judge/src/service/pool"
 	"github.com/bibimoni/Online-judge/submission-judge/src/service/problem"
-	"github.com/bibimoni/Online-judge/submission-judge/src/service/store"
+	// "github.com/bibimoni/Online-judge/submission-judge/src/service/store"
 	isubmission_utils "github.com/bibimoni/Online-judge/submission-judge/src/usecase/submission/utils"
 )
 
@@ -67,10 +67,10 @@ func NewJudgeServiceImpl(
 		isolateservice:    isolateservice,
 	}
 
-	numWorkers := pService.Len()
-	for range numWorkers {
-		go js.worker(context.Background())
-	}
+	// numWorkers := pService.Len()
+	// for range numWorkers {
+	// 	go js.worker(context.Background())
+	// }
 
 	return js
 }
@@ -92,35 +92,35 @@ func NewJudgeService(
 // This will crawl from redis and get submission request
 // This make sure that the amount of go routine is equals to the
 // number of isolate services
-func (js *JudgeServiceImpl) worker(ctx context.Context) {
-	for {
-		req, err := js.redisRepo.PopSubmissionJob(ctx)
-		if err != nil {
-			config.GetLogger().Error().Err(err).Msg("Redis connection error, retrying...")
-			time.Sleep(time.Second)
-			continue
-		}
-
-		req.IService = js.isolateservice
-
-		lang, err := store.DefaultStore.Get(req.LanguageId)
-		if err != nil {
-			config.GetLogger().Error().Err(err).Msg("Unknown language")
-			continue
-		}
-
-		problemInfo, err := js.problemService.Get(ctx, req.ProblemId)
-		if err != nil {
-			config.GetLogger().Error().Err(err).Msg("Unknown problem")
-			continue
-		}
-
-		err = js.JudgeStart(ctx, lang, req, problemInfo)
-		if err != nil {
-			config.GetLogger().Error().Err(err).Msg("Error processing submission")
-		}
-	}
-}
+// func (js *JudgeServiceImpl) worker(ctx context.Context) {
+// 	for {
+// 		req, err := js.redisRepo.PopSubmissionJob(ctx)
+// 		if err != nil {
+// 			config.GetLogger().Error().Err(err).Msg("Redis connection error, retrying...")
+// 			time.Sleep(time.Second)
+// 			continue
+// 		}
+//
+// 		req.IService = js.isolateservice
+//
+// 		lang, err := store.DefaultStore.Get(req.LanguageId)
+// 		if err != nil {
+// 			config.GetLogger().Error().Err(err).Msg("Unknown language")
+// 			continue
+// 		}
+//
+// 		problemInfo, err := js.problemService.Get(ctx, req.ProblemId)
+// 		if err != nil {
+// 			config.GetLogger().Error().Err(err).Msg("Unknown problem")
+// 			continue
+// 		}
+//
+// 		err = js.JudgeStart(ctx, lang, req, problemInfo)
+// 		if err != nil {
+// 			config.GetLogger().Error().Err(err).Msg("Error processing submission")
+// 		}
+// 	}
+// }
 
 // If this worked, i might have to remove the unnecessary parameter
 func (js *JudgeServiceImpl) Judge(ctx context.Context, req *isolateservice.SubmissionRequest, problemInfo *problem.ProblemServiceGetOutput) error {

@@ -132,8 +132,8 @@ services:
       - mypostgres
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=postgresql://postgres:postgres@mypostgres:5432/auth_db?schema=public
-      - JWT_SECRET=your_jwt_secret
+      - AUTH_DATABASE_URL=postgresql://postgres:postgres@mypostgres:5432/auth_db?schema=public
+      - AUTH_JWT_SECRET=your_jwt_secret
     volumes:
       - ./src/Services/auth-v2:/app
       - /app/node_modules
