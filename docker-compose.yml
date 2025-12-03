@@ -4,6 +4,7 @@ services:
     build: 
       context: ./src/Services/submission-judge/ 
       target: dev #prod 
+    platform: linux/amd64
     env_file:
       # - src/Services/submission-judge/.env
       - ./.env
@@ -130,6 +131,8 @@ services:
       - "50051:50051"
     depends_on:
       - mypostgres
+    env_file:
+      - ./.env
     environment:
       - NODE_ENV=development
       - AUTH_DATABASE_URL=postgresql://postgres:postgres@mypostgres:5432/auth_db?schema=public

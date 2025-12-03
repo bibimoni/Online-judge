@@ -94,6 +94,9 @@ func (rs *RedisSubmissionRepositoryImpl) PopSubmissionJob(ctx context.Context) (
 	}
 
 	res, err := rs.rdb.BLPop(ctx, 0, cfg.Redis.SubmissionQueueKey).Result()
+	if err != nil {
+		return nil, err
+	}
 
 	var req isolateservice.SubmissionRequest
 	// res[1] is value
