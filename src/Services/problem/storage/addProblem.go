@@ -46,11 +46,12 @@ FUTURE:
 - Automatically get the latest package of the problem
 */
 func AddProblem(ProblemId uint64) error {
-	if found, err := CheckAlreadyAdded(ProblemId); err != nil {
-		return fmt.Errorf("error while checking the problem repository: %s", err.Error())
-	} else if found {
-		return fmt.Errorf("problem already existed in the repository")
-	}
+	// We sometime need to update the problem, so these lines is not needed
+	// if found, err := CheckAlreadyAdded(ProblemId); err != nil {
+	// 	return fmt.Errorf("error while checking the problem repository: %s", err.Error())
+	// } else if found {
+	// 	return fmt.Errorf("problem already existed in the repository")
+	// }
 
 	var PackageId uint64
 	PackageId, err := polygon.GetLastestPackage(ProblemId)

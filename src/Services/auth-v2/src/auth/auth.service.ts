@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { config } from 'src/config/config';
 
 @Injectable()
 export class AuthService {
@@ -55,7 +56,7 @@ export class AuthService {
       role: role ? role.name : null,
       permissions,
     };
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '1h' });
+    const accessToken = this.jwtService.sign(payload, { expiresIn: config.jwtExpiresIn });
     return { access_token: accessToken };
   }
 
@@ -73,7 +74,6 @@ export class AuthService {
       }
       const hasPermission = user.role.permissions.some(p => p.name === requiredPermission);
       return { allowed: hasPermission, user: payload };
-
     } catch (e) {
       throw new UnauthorizedException('Invalid token');
     }

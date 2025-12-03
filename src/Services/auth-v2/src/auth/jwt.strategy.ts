@@ -8,7 +8,6 @@ import { config } from 'src/config/config';
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
   ) {
-    config.load()
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,

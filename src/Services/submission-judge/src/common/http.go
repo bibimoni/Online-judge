@@ -65,36 +65,31 @@ func SendRequest[T any](ctx context.Context, reqData APIRequest) (*T, error) {
 
 // This will return the stream of the result, allows for more
 // type of data returned from http request (binary, plain text, etc..)
-func SendRequestNoJson(ctx context.Context, reqData APIRequest, handler func(body io.Reader) error) error {
+func SendRequestNoJson(ctx context.Context, reqData APIRequest) (*http.Response, error) {
 	var bodyReader io.Reader
 	if reqData.Body != nil {
 		jsonData, err := json.Marshal(reqData.Body)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		bodyReader = bytes.NewBuffer(jsonData)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, reqData.Method, reqData.URL, bodyReader)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	client := &http.Client{Timeout: reqData.Timeout}
 	res, err := client.Do(req)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer res.Body.Close()
 
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return errors.New("API Request failed with status code: " + res.Status)
+		return nil, errors.New("API Request failed with status code: " + res.Status)
 	}
 
-	if err := handler(res.Body); err != nil {
-		return err
-	}
-
-	return nil
+	return res, nil
 }

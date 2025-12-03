@@ -23,7 +23,7 @@ func CreateSubmissionSourceFile(i *domain.Isolate, sourceCode string, submission
 
 	file, err := os.Create(sourceCodeAddr)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create source code in: %s", sourceCodeAddr)
+		return nil, fmt.Errorf("failed to create source code in: %s", sourceCodeAddr)
 	}
 	_, err = file.WriteString(sourceCode)
 	if err != nil {

@@ -2,7 +2,7 @@ export class Config {
   private static instance: Config;
   private _config: any = {};
 
-  private constructor() { }
+  private constructor() { this.load() }
 
   static getInstance(): Config {
     if (!Config.instance) {
@@ -14,11 +14,11 @@ export class Config {
   load() {
     this._config = {
       port: parseInt(process.env.PORT!) || 50051,
-      jwtSecret: process.env.JWT_SECRET || 'secret',
+      jwtSecret: process.env.AUTH_JWT_SECRET || 'secret',
       jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
       isDevelopment: process.env.NODE_ENV || 'development'
     };
-    this._config.databaseUri = process.env.DATABASE_URL || `postgresql://postgres:postgres@localhost:5432/auth_db`
+    this._config.databaseUri = process.env.AUTH_DATABASE_URL || `postgresql://postgres:postgres@localhost:5432/auth_db`
 
     return this;
   }

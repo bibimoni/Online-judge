@@ -11,3 +11,4 @@ scoreboard_redis/
 **/tmp/
 .DS_Store
 AGENTS.md
+.DS_Store
