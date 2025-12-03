@@ -63,11 +63,7 @@ func CopyChecker(i *domain.Isolate, submissionId string, checkerLocation string)
 		return err
 	}
 
-	info, err := os.Stat(checkerLocation)
-	if err != nil {
-		return err
-	}
-	if err = os.Chmod(checkerNewAddr, info.Mode()); err != nil {
+	if err = os.Chmod(checkerNewAddr, 0755); err != nil {
 		return err
 	}
 
@@ -105,11 +101,7 @@ func CopyInteractor(i *domain.Isolate, submissionId string, interactorLocation s
 		return err
 	}
 
-	info, err := os.Stat(interactorLocation)
-	if err != nil {
-		return err
-	}
-	if err = os.Chmod(interactorNewAddr, info.Mode()); err != nil {
+	if err = os.Chmod(interactorNewAddr, 0755); err != nil {
 		return err
 	}
 
@@ -147,11 +139,7 @@ func CopyCrossRun(i *domain.Isolate, submissionId string, crossrunLocation strin
 		return err
 	}
 
-	info, err := os.Stat(crossrunLocation)
-	if err != nil {
-		return err
-	}
-	if err = os.Chmod(crossrunNewAddr, info.Mode()); err != nil {
+	if err = os.Chmod(crossrunNewAddr, 0755); err != nil {
 		return err
 	}
 	return nil

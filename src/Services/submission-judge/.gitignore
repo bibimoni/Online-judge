@@ -2,3 +2,4 @@
 main
 bin/
 tmp/
+test_output.txt
