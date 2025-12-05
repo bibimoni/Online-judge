@@ -1,16 +1,15 @@
 services:
   submission-judge:
     container_name: submission-judge-app
-    build: 
-      context: ./src/Services/submission-judge/ 
-      target: dev #prod 
-    platform: linux/amd64
+    build:
+      context: ./src/Services/submission-judge/
+      target: dev #prod
     env_file:
       # - src/Services/submission-judge/.env
       - ./.env
     ports:
       - "8000:8000"
-    depends_on: 
+    depends_on:
       - mongosubmissionjudgedb
     volumes:
       - ./src/Services/submission-judge:/app
@@ -18,16 +17,16 @@ services:
     networks:
       - online-judge-network
     privileged: true
-  mongosubmissionjudgedb: 
+  mongosubmissionjudgedb:
     container_name: submission-judge-db
     image: mongo
     restart: always
     environment:
-    #   MONGO_INITDB_ROOT_USERNAME: root 
+    #   MONGO_INITDB_ROOT_USERNAME: root
     #   MONGO_INITDB_ROOT_PASSWORD: root
-      MONGO_INITDB_DATABASE: submissionjudgedb 
+      MONGO_INITDB_DATABASE: submissionjudgedb
     ports:
-      - '37017:27017'
+      - '127.0.0.1:37017:27017'
     volumes:
       - ./submission-judge-db-data:/data/db
     networks:
@@ -37,14 +36,14 @@ services:
     image: redis
     restart: always
     ports:
-      - '6381:6379'
+      - '127.0.0.1:6381:6379'
     command: redis-server --save 20 1 --loglevel warning --requirepass root
     networks:
       - online-judge-network
     volumes:
       - ./redis-submission-judge:/data
   gateway:
-    container_name: gateway-app 
+    container_name: gateway-app
     build:
       context: ./src/Services/gateway/
       target: dev #prod
@@ -63,7 +62,7 @@ services:
     ports:
       - '3000:3000'
     depends_on:
-      - problemmongodb 
+      - problemmongodb
     env_file:
       - ./.env
     volumes:
@@ -76,7 +75,7 @@ services:
     container_name: problem-mongo
     restart: always
     environment:
-    #   MONGO_INITDB_ROOT_USERNAME: root 
+    #   MONGO_INITDB_ROOT_USERNAME: root
     #   MONGO_INITDB_ROOT_PASSWORD: root
       MONGO_INITDB_DATABASE: problem-db
     ports:
@@ -104,11 +103,11 @@ services:
     container_name: contest-mongo
     restart: always
     environment:
-    #   MONGO_INITDB_ROOT_USERNAME: root 
+    #   MONGO_INITDB_ROOT_USERNAME: root
     #   MONGO_INITDB_ROOT_PASSWORD: root
       MONGO_INITDB_DATABASE: contest-db
     ports:
-      - '47017:27017'
+      - '127.0.0.1:47017:27017'
     volumes:
       - ./contest-db-data:/data/db
     networks:
@@ -131,8 +130,6 @@ services:
       - "50051:50051"
     depends_on:
       - mypostgres
-    env_file:
-      - ./.env
     environment:
       - NODE_ENV=development
       - AUTH_DATABASE_URL=postgresql://postgres:postgres@mypostgres:5432/auth_db?schema=public
@@ -146,7 +143,7 @@ services:
   mypostgres:
     image: postgres:latest
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
@@ -158,4 +155,3 @@ services:
 networks:
   online-judge-network:
     driver: bridge
-
