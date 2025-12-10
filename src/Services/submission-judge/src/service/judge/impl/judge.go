@@ -67,11 +67,6 @@ func NewJudgeServiceImpl(
 		isolateservice:    isolateservice,
 	}
 
-	// numWorkers := pService.Len()
-	// for range numWorkers {
-	// 	go js.worker(context.Background())
-	// }
-
 	return js
 }
 
@@ -89,64 +84,16 @@ func NewJudgeService(
 	return NewJudgeServiceImpl(pService, problemService, evalRepo, checkerS, interactorS, redis, submissionRepo, sourcecodeRepo, isoisolateservice)
 }
 
-// This will crawl from redis and get submission request
-// This make sure that the amount of go routine is equals to the
-// number of isolate services
-// func (js *JudgeServiceImpl) worker(ctx context.Context) {
-// 	for {
-// 		req, err := js.redisRepo.PopSubmissionJob(ctx)
-// 		if err != nil {
-// 			config.GetLogger().Error().Err(err).Msg("Redis connection error, retrying...")
-// 			time.Sleep(time.Second)
-// 			continue
-// 		}
-//
-// 		req.IService = js.isolateservice
-//
-// 		lang, err := store.DefaultStore.Get(req.LanguageId)
-// 		if err != nil {
-// 			config.GetLogger().Error().Err(err).Msg("Unknown language")
-// 			continue
-// 		}
-//
-// 		problemInfo, err := js.problemService.Get(ctx, req.ProblemId)
-// 		if err != nil {
-// 			config.GetLogger().Error().Err(err).Msg("Unknown problem")
-// 			continue
-// 		}
-//
-// 		err = js.JudgeStart(ctx, lang, req, problemInfo)
-// 		if err != nil {
-// 			config.GetLogger().Error().Err(err).Msg("Error processing submission")
-// 		}
-// 	}
-// }
-
 // If this worked, i might have to remove the unnecessary parameter
 func (js *JudgeServiceImpl) Judge(ctx context.Context, req *isolateservice.SubmissionRequest, problemInfo *problem.ProblemServiceGetOutput) error {
 	return js.redisRepo.PushSubmissionJob(ctx, req)
 }
 
-// This will be the final wrapper to double check condition, at the end of the function
-// The real judge function will be called, and it will be asynchonous
-/*
-func (js *JudgeServiceImpl) Judge(ctx context.Context, req *isolateservice.SubmissionRequest, problemInfo *problem.ProblemServiceGetOutput) error {
-	lang, err := store.DefaultStore.Get((*req).LanguageId)
-	if err != nil {
-		return err
-	}
-	// Create a new context since judging has nothing to do with http request
-	bgCtx := context.Background()
-	go js.JudgeStart(bgCtx, lang, req, problemInfo)
-	return nil
-}
-*/
-
 func (js *JudgeServiceImpl) JudgeStart(ctx context.Context, lang pkg.Language, req *isolateservice.SubmissionRequest, problemInfo *problem.ProblemServiceGetOutput) error {
 	// update PENDING to Websocket
 	err := js.updateWS(ctx, req.EvalId)
 	if err != nil {
-		config.GetLogger().Panic().Msgf("Redis stopped working: %v", err)
+		config.GetLogger().Panic().Msgf("redis stopped working: %v", err)
 		return err
 	}
 
@@ -162,7 +109,7 @@ func (js *JudgeServiceImpl) JudgeStart(ctx context.Context, lang pkg.Language, r
 	}
 
 	defer js.pService.Put(i)
-	defer i.Logger.Debug().Msgf("Returning isolate to pool, number in pool will be: %d", js.pService.Len()+1)
+	defer i.Logger.Debug().Msgf("Returning isolate to pool, number in pool will be: %d", js.pService.Len())
 
 	i.Logger.Debug().Msgf("Took out an isolate, number of isolate remains in the pool is: %d", js.pService.Len())
 	// Prepare all the nessessary files
@@ -180,7 +127,7 @@ func (js *JudgeServiceImpl) JudgeStart(ctx context.Context, lang pkg.Language, r
 		err = js.JudgeICPC(ctx, i, lang, req, problemInfo)
 	default:
 		// js.pService.Put(i)
-		i.Logger.Error().Msgf("Other submission type is not supported")
+		i.Logger.Error().Err(err).Msgf("Other submission type is not supported")
 		err = judge.UnsupportedSubmissionType
 	}
 
