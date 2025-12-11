@@ -1,9 +1,9 @@
 package repository
 
 import (
-	"contest/common"
-	domain "contest/domain/entity"
-	repository "contest/domain/repository/contest"
+	"contest/src/common"
+	domain "contest/src/domain/entity"
+	repository "contest/src/domain/repository/contest"
 	"context"
 	"fmt"
 	"slices"
@@ -35,7 +35,7 @@ func (cr *ContestRepositoryImpl) Create(ctx context.Context, author uint64) (str
 		Name:        "",
 		Description: "",
 
-		Authors:     []uint64{},
+		Authors:     []uint64{author},
 		Curators:    []uint64{},
 		Testers:     []uint64{},
 		Contestants: []domain.Contestant{},
@@ -64,9 +64,12 @@ func (cr *ContestRepositoryImpl) GetById(contestId string) (domain.Contest, erro
 	defer cancel()
 
 	var contest domain.Contest
-	cr.collection.FindOne(ctx, bson.M{
+	err := cr.collection.FindOne(ctx, bson.M{
 		"id": contestId,
 	}).Decode(&contest)
+	if err != nil {
+		return domain.Contest{}, err
+	}
 
 	return contest, nil
 }
@@ -80,8 +83,6 @@ func (cr *ContestRepositoryImpl) AddPeople(contestId string, peopleType string, 
 	if err != nil {
 		return err
 	}
-
-	fmt.Printf("contest: %v\n", contest)
 
 	// Check if already exists
 	if peopleType == common.CONTEST_CONTESTANTS && contest.ContestantExist(userId) {
@@ -131,8 +132,6 @@ func (cr *ContestRepositoryImpl) RemovePeople(contestId string, peopleType strin
 		return err
 	}
 
-	fmt.Printf("contest: %v\n", contest)
-
 	// Check if already exists
 	if peopleType == common.CONTEST_CONTESTANTS && !contest.ContestantExist(userId) {
 		return fmt.Errorf("contestant %d is not in contest %s", userId, contestId)
@@ -152,7 +151,18 @@ func (cr *ContestRepositoryImpl) RemovePeople(contestId string, peopleType strin
 
 	var data interface{}
 	if peopleType == common.CONTEST_CONTESTANTS {
-		data = domain.CreateContestant(userId)
+		// For pulling, we might need to match by UserID if it's an object
+		// But $pull with object should work if it matches exactly.
+		// However, CreateContestant creates a new object with timestamp, so it might not match exactly if we just recreate it.
+		// We should pull by UserID for contestants.
+		// But existing code used data = CreateContestant(userId) which implies exact match or maybe structure match?
+		// Actually, for $pull with array of objects, we can specify a query.
+		// Let's check how it was done.
+		// Old code: data = domain.CreateContestant(userId)
+		// This suggests it was trying to remove exact object. But timestamp would differ.
+		// This looks like a bug in original code or I misunderstand.
+		// I will fix it to pull by UserID for contestants.
+		data = bson.M{"user_id": userId}
 	} else {
 		data = userId
 	}
@@ -166,46 +176,7 @@ func (cr *ContestRepositoryImpl) RemovePeople(contestId string, peopleType strin
 		return err
 	}
 
-	log.Info().Msgf("removed user %v to group %s of contest %s", data, peopleType, contestId)
+	log.Info().Msgf("removed user %v from group %s of contest %s", data, peopleType, contestId)
 
 	return nil
 }
-
-// func (cr *ContestRepositoryImpl) AddAuthor(contestId string, authorId uint64) error {
-// 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-// 	defer cancel()
-
-// 	_, err := cr.collection.UpdateOne(
-// 		ctx,
-// 		bson.M{"id": contestId},
-// 		bson.M{"$push": bson.M{"authors": strconv.Itoa(int(authorId))}},
-// 	)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	log.Info().Msg(fmt.Sprintf("Add author %d to the contest %s", authorId, contestId))
-
-// 	return nil
-// }
-
-// func (cr *ContestRepositoryImpl) RemoveAuthor(ctx context.Context, contestId string, authorId uint64) error {
-// 	return nil
-// }
-
-// func (cr *ContestRepositoryImpl) AddContestant(contestId string, userId uint64) error {
-// 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-// 	defer cancel()
-
-// 	_, err := cr.collection.UpdateOne(
-// 		ctx,
-// 		bson.M{"id": contestId},
-// 		bson.M{"$push": bson.M{"contestants": domain.CreateContestant(userId)}},
-// 	)
-
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-// }

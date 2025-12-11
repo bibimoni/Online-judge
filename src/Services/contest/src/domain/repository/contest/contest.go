@@ -1,7 +1,7 @@
 package repository
 
 import (
-	domain "contest/domain/entity"
+	domain "contest/src/domain/entity"
 	"context"
 )
 
