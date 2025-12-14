@@ -189,11 +189,11 @@ Requests judge to rejudge
 
 ## Important notes
 ### What is submission ingestion?
-1. The client submit in the contest via `/submit` endpoint of the `contest` service. Then the `contest` service forwards the submission to the `submission-yudge` service. It will stores mapping in its DB. 
+1. The client submit in the contest via `/submit` endpoint of the `contest` service. create `ContestSubmission` object. Then the `contest` service forwards the submission to the `submission-judge` service. It will stores mapping in its DB. 
 
 2. Then when the judging is done, the `submission-judge` service calls the `ingest_submission` usecase in the `contest` service. 
 
-3. Contest service then lookup `ContestSubmissionRef` by submisison_id, if exists update `ContestSubmission`/scoreboard, otherwsie ignore (not a contest submission).
+3. Contest service then lookup `ContestSubmission` by submisison_id, if exists update `ContestSubmission`/scoreboard, otherwsie ignore (not a contest submission).
 
 ### What is scoreboard recalculation?
 When a new submission is ingested, or a submission is skipped/unskipped, or a rejudge is done, the scoreboard needs to be recalculated.
