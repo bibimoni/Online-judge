@@ -1,5 +1,5 @@
 [build]
-cmd = "go build -o main ./cmd/main.go"
+cmd = "go build -o main ./src/cmd/main.go"
 bin = "./main"
 delay = 1000
 

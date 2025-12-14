@@ -86,6 +86,9 @@ func (ps *PoolServiceImpl) Get() (*domain.Isolate, error) {
 				return nil, err
 			}
 			err = ps.isolateService.Init(newIsolate)
+			if err != nil {
+				config.GetLogger().Warn().Err(err).Msg("Error happend when init isolate")
+			}
 			ps.currentCount += 1
 			ps.mu.Unlock()
 			return newIsolate, nil

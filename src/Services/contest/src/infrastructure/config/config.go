@@ -34,9 +34,9 @@ func Load() (*Config, error) {
 	cfg.Database.Uri = getEnv("CONTEST_MONGO_URI", "mongodb://mongocontest:27017/contestdb")
 	cfg.Database.Name = getEnv("CONTEST_MONGO_DATABASE_NAME", "contestdb")
 
-	cfg.Redis.Host = getEnv("REDIS_HOST", "rediscontest")
-	cfg.Redis.Port = getEnv("REDIS_PORT", "6379")
-	cfg.Redis.Password = getEnv("REDIS_PASSWORD", "")
+	cfg.Redis.Host = getEnv("CONTEST_REDIS_HOST", "rediscontest")
+	cfg.Redis.Port = getEnv("CONTEST_REDIS_PORT", "6379")
+	cfg.Redis.Password = getEnv("CONTEST_REDIS_PASSWORD", "")
 
 	cfg.Enviroment = getEnv("CONTEST_ENV", "Development")
 	cfg.LogLevel = getEnv("CONTEST_LOG_LEVEL", "debug")
