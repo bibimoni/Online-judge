@@ -31,14 +31,16 @@ To support rejudge/skip reliably we store the contest view of the submission.
 
 - `SubmissionID` (reference to Submission)
 - `ContestID` (reference to Contest)
-- `ContestantID` (reference to Contestant)
+- `Username` (string)
 - `ProblemID` (reference to ContestProblem)
 - `SubmittedAt` (time.Time)
 - `Verdict` (enum: ACCEPTED, WRONG_ANSWER, TIME_LIMIT_EXCEEDED, etc.)
 - `Points` (float64; for IOI scoring)
 - `JudgedAt` (time.Time)
+- `EvalStatus` (enum: PENDING, JUDGING, FINISHED)
 - `Ignored` (bool)
 - `Updated At` (time.Time)
+- `RejudgeWindowEnd` (time.Time, the time to rejudge, after this the scoreboard will be finalized)
 
 ### ScoreboardSnapshot (new)
 - `ContestID` (reference to Contest)
@@ -48,12 +50,20 @@ To support rejudge/skip reliably we store the contest view of the submission.
 
 ### Rating Result (new)
 - `ContestID` (reference to Contest)
-- `ContestantID` (reference to Contestant)
+- `Username` (string)
 - `OldRating` (int)
 - `NewRating` (int)
 - `Delta` (int)
 - `Rank`
 - `Performance` (optional)
+
+### RejudgeJob
+- `ContestID` (reference to Contest)
+- `Scope`
+- `SubmissionID` (string)
+- `ProblemID` (reference to Problem)
+- `RequestedBy` (string)
+- `Status` (enum: PENDING, JUDGING, COMPLETED, FAILED)
 
 ## Repository interfaces
 
@@ -62,7 +72,7 @@ To support rejudge/skip reliably we store the contest view of the submission.
 - `GetByID(ctx, id) (Contest, error)`
 - `UpdateMeta(ctx, id, patch) error`
 - `UpdateProblems(ctx, id, problems []ContestProblem) error`
-- `RegisterContestant(ctx, contestID, contestantID) error`
+- `RegisterContestant(ctx, contestID, username) error`
 - `SetRated(ctx, contestID, rated bool, policy string) error`
 - `SetScoringType(ctx, contestID, scoringType string, rules any) error`
 
@@ -70,17 +80,18 @@ To support rejudge/skip reliably we store the contest view of the submission.
 - `UpsertFromJudgeEvent(ctx, contestID, submission ...) error`
 - `ListByContest(ctx, contestID, filters...) ([]ContestSubmission, error)`
 - `SetIgnored(ctx, contestID, submissionID, ignored bool) error`
-- `BulkSetIgnoredByContestant(ctx, contestID, contestantID, ignored bool) error`
+<!-- - `BulkSetIgnoredByContestant(ctx, contestID, username, ignored bool) error` -->
+- `SetIgnoredByUser(ctx, contestID, username, ignored bool) error`
 - `UpdateVerdictPointsForRejudge(ctx, contestID, submissionID, verdict, points) error`
 
 ### Scoreboard Repository
 - `SaveSnapshot(ctx, contestID, kind string, payload ScoreboardSnapshot) error`
 - `GetSnapshot(ctx, contestID, kind string) (ScoreboardSnapshot, error)`
 
-### RatingResult Repository
-- `GetRating(ctx, userID) (rating, error)`
-- `BatchGetRatings(ctx, contestantIDs) (...)`
-- `SaveRatingChanges(ctx, contestID, results []RatingResult) error`
+### ContestRatingResult Repository
+- `GetRating(ctx, contestID, username) (rating, error)`
+- `BatchGetRatings(ctx, contestID, username []string) (...)`
+- `SaveRatingChanges(ctx, results []RatingResult) error`
 
 ## Services
 ### Scoring Service
@@ -110,8 +121,7 @@ To support rejudge/skip reliably we store the contest view of the submission.
 
 ### Rejudge Service
 - Name: `ContestRejudge`
-<...> handle rejudge requests, update contest submissions, trigger scoreboard recalculation and rating recalculation
-
+<...> handle rejudge requests, update contest submissions, trigger scoreboard recalculation.
 ### Moderation Service
 - Name: `ContestModeration`
 <...> handle ignore/unignore requests for contest submissions (and more...)
@@ -166,7 +176,7 @@ Below is the current list of use cases i can think of right now. Each usecase sh
 ### Moderation
 - `POST /api/v1/contest/:id/submission/:sid/skip`
 - `POST /api/v1/contest/:id/submission/:sid/unskip` (Optional)
-- `POST /api/v1/contest/:id/user/:uid/skip` (bulk ignore)
+- `POST /api/v1/contest/:id/user/:username/skip` (bulk ignore)
 
 ### Rejudge
 Requests judge to rejudge
@@ -175,7 +185,7 @@ Requests judge to rejudge
 - `POST /api/v1/contest/:id/rejudge` (whole contest)
 
 ### Internal integration
-- `POST /api/v1/internal/contest/:id/submission-events` (ingest submission events from judge)
+- `POST /api/v1/internal/contest/submission-events` (ingest submission events from judge)
 
 ## Implementation steps
 1. Fix schema
@@ -189,11 +199,12 @@ Requests judge to rejudge
 
 ## Important notes
 ### What is submission ingestion?
-1. The client submit in the contest via `/submit` endpoint of the `contest` service. create `ContestSubmission` object. Then the `contest` service forwards the submission to the `submission-judge` service. It will stores mapping in its DB. 
+1. The client submit in the contest via `/submit` endpoint of the `contest` service. Then the `contest` service forwards the submission to the `submission-judge` service. Receives the `submission_id`. Create `ContestSubmission` object. It will stores mapping in its DB. 
 
 2. Then when the judging is done, the `submission-judge` service calls the `ingest_submission` usecase in the `contest` service. 
 
-3. Contest service then lookup `ContestSubmission` by submisison_id, if exists update `ContestSubmission`/scoreboard, otherwsie ignore (not a contest submission).
+3. Contest service then lookup `ContestSubmission` by `submisison_id`, if exists update `ContestSubmission`/scoreboard, otherwsie ignore (not a contest submission).
+3.1 It also check if the submission belongs to a rejudge job, and update accordingly.
 
 ### What is scoreboard recalculation?
 When a new submission is ingested, or a submission is skipped/unskipped, or a rejudge is done, the scoreboard needs to be recalculated.
@@ -206,6 +217,17 @@ Mechanism to update live scoreboard:
 2. After each snapshot update, contest service publishes an `update_event` on Redis PubSub.
 - Channel: `contest:scoreboard:{contestID}`
 - Payload: `{contest_id, version, generated_at}` then the client fetches via HTTP. (Why? Full snapshot can be big, delta update is complex for client to handle)
+
+### Rating 
+The actual rating will be stored in the user(or `auth`) service. Not in the `contest` service. The `contest` service will store the rating changes per contest.
+
+### Rejudge 
+Rejudge is an async operation that re-runs judging for an existing set of submissions and updates:
+- `ContestSubmission`
+- Live scoreboard (recompute)
+- Final scoreboard + rating
+
+Because it's async, the rejudge request will create a `RejudgeJob` and return a rejudge_job_id
 
 ## Implementation note
 ### `ingest_submission` usecase
@@ -224,6 +246,12 @@ Mechanism to update live scoreboard:
 After judging a submission (status = `FINISHED`), call `ingest_submission` usecase in `contest` service via HTTP API. (or maybe even `JUDGING`)
 
 Also implement a rejudge API call.
+`POST /api/v1/internal/rejudge/submissions` with batch of submission IDs to rejudge.
 
-
-
+### Rejudge
+1. User calls rejudge endpoint
+2. Create `RejudgeJob`
+3. Call `submission-judge` rejudge API with submission IDs
+4. `submission-judge` rejudges (by adding the submission to its queue). Update eval, submission status in its database.
+5. After each submission is rejudged, `submission-judge` calls `ingest_submission` usecase in `contest` service
+6. `ingest_submission` updates `ContestSubmission`, or in this case also `RejudgeJob` status if all submissions are done.
