@@ -19,7 +19,7 @@ Add:
 - `FreezeTime` (optional; even if not know, design for it)
 - `Status` (enum: DRAFT, SCHEDULED, ONGOING, ENDED, RATED)
 - `FinalizedAt` (time.Time)
-
+- `RejudgeWindowEnd` (time.Time, the time to rejudge, after this the scoreboard will be finalized)
 ### ContestProblem (new)
 - `ProblemID` (reference to Problem)
 - `Label` (or `shortname`) (string) 
@@ -40,7 +40,6 @@ To support rejudge/skip reliably we store the contest view of the submission.
 - `EvalStatus` (enum: PENDING, JUDGING, FINISHED)
 - `Ignored` (bool)
 - `Updated At` (time.Time)
-- `RejudgeWindowEnd` (time.Time, the time to rejudge, after this the scoreboard will be finalized)
 
 ### ScoreboardSnapshot (new)
 - `ContestID` (reference to Contest)
