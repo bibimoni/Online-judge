@@ -20,6 +20,7 @@ Add:
 - `Status` (enum: DRAFT, SCHEDULED, ONGOING, ENDED, RATED)
 - `FinalizedAt` (time.Time)
 - `RejudgeWindowEnd` (time.Time, the time to rejudge, after this the scoreboard will be finalized)
+
 ### ContestProblem (new)
 - `ProblemID` (reference to Problem)
 - `Label` (or `shortname`) (string) 
@@ -58,8 +59,7 @@ To support rejudge/skip reliably we store the contest view of the submission.
 
 ### RejudgeJob
 - `ContestID` (reference to Contest)
-- `Scope`
-- `SubmissionID` (string)
+- `SubmissionIDs` (string[])
 - `ProblemID` (reference to Problem)
 - `RequestedBy` (string)
 - `Status` (enum: PENDING, JUDGING, COMPLETED, FAILED)

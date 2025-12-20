@@ -11,6 +11,14 @@ require (
 	github.com/redis/go-redis/v9 v9.12.1
 	github.com/rs/zerolog v1.34.0
 	go.mongodb.org/mongo-driver v1.17.4
+	github.com/google/uuid v1.6.0
+
+	// Testing dependencies
+	github.com/stretchr/testify v1.9.0
+	github.com/testcontainers/testcontainers-go v0.28.0
+	github.com/testcontainers/testcontainers-go/modules/mongodb v0.28.0
+	github.com/testcontainers/testcontainers-go/modules/redis v0.28.0
+	go.uber.org/mock v0.5.0
 )
 
 require (
