@@ -1,3 +1,4 @@
+coverage.out
 # .github/
 .github/workflows/contest-service-ci.yml
 .github/workflows/ci.yml
