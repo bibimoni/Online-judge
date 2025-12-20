@@ -134,35 +134,34 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
-  # Build Docker images
-  build-images:
-    name: Build Docker Images
-    runs-on: ubuntu-latest
-    # needs: [test-go-services, test-auth-service]
-    needs: [test-auth-service]
-    if: github.event_name == 'push'
-    strategy:
-      matrix:
-        # service: [submission-judge, problem, gateway, contest, auth-v2]
-        service: [auth-v2]
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-      
-      - name: Build and push
-        uses: docker/build-push-action@v5
-        with:
-          context: ./src/Services/${{ matrix.service }}
-          push: true
-          tags: |
-            ${{ secrets.DOCKER_USERNAME }}/online-judge-${{ matrix.service }}:latest
-            ${{ secrets.DOCKER_USERNAME }}/online-judge-${{ matrix.service }}:${{ github.sha }}
+  # Build Docker images (DISABLED - not needed for local development)
+  # Uncomment and add Docker Hub credentials if you want to publish images
+  # build-images:
+  #   name: Build Docker Images
+  #   runs-on: ubuntu-latest
+  #   needs: [test-auth-service]
+  #   if: github.event_name == 'push'
+  #   strategy:
+  #     matrix:
+  #       service: [auth-v2]
+  #   
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     
+  #     - name: Set up Docker Buildx
+  #       uses: docker/setup-buildx-action@v3
+  #     
+  #     - name: Login to Docker Hub
+  #       uses: docker/login-action@v3
+  #       with:
+  #         username: ${{ secrets.DOCKER_USERNAME }}
+  #         password: ${{ secrets.DOCKER_PASSWORD }}
+  #     
+  #     - name: Build and push
+  #       uses: docker/build-push-action@v5
+  #       with:
+  #         context: ./src/Services/${{ matrix.service }}
+  #         push: true
+  #         tags: |
+  #           ${{ secrets.DOCKER_USERNAME }}/online-judge-${{ matrix.service }}:latest
+  #           ${{ secrets.DOCKER_USERNAME }}/online-judge-${{ matrix.service }}:${{ github.sha }}
