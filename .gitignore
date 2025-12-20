@@ -1,4 +1,6 @@
-.github/
+# .github/
+.github/workflows/contest-service-ci.yml
+.github/workflows/ci.yml
 .env
 submission-judge-db-data/
 problem-db-data/
