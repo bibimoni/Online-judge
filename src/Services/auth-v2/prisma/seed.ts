@@ -52,7 +52,7 @@ export async function seedDatabase(prisma: PrismaClient) {
       description: 'Regular user who can participate in contests',
       permissions: [
         'login', 'register',
-        'view_problem', 'submit_code', 'view_own_submission',
+        'view_problem', 'submit_code', 'view_submission',
         'view_contest', 'register_contest',
         'view_profile', 'edit_profile'
       ]
@@ -63,7 +63,7 @@ export async function seedDatabase(prisma: PrismaClient) {
       permissions: [
         'login', 'register',
         'view_problem', 'create_problem', 'edit_problem', 'view_hidden_problem',
-        'submit_code', 'view_own_submission', 'view_all_submissions',
+        'submit_code', 'view_submission', 'rejudge_submission',
         'view_contest', 'register_contest', 'create_contest', 'edit_contest', 'manage_contest',
         'view_profile', 'edit_profile'
       ]
@@ -77,6 +77,7 @@ export async function seedDatabase(prisma: PrismaClient) {
 
   for (const r of roles) {
     const permIds = await getPerms(r.permissions);
+    
     await prisma.role.upsert({
       where: { name: r.name },
       update: {
@@ -86,8 +87,8 @@ export async function seedDatabase(prisma: PrismaClient) {
       create: {
         name: r.name,
         description: r.description,
-        permissions: { connect: permIds },
-      },
+        permissions: { connect: permIds }
+      }
     });
   }
 

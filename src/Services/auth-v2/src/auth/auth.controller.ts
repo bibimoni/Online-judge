@@ -59,7 +59,8 @@ export class AuthController {
     if (!req.user) {
       throw new UnauthorizedException()
     }
-    return this.authService.verifyPermission(req.user, body.permission);
+    
+    return await this.authService.verifyPermission(req.user, body.permission);
   }
 
   @UseGuards(JwtAuthGuard)

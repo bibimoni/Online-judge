@@ -78,6 +78,12 @@ jobs:
         working-directory: src/Services/auth-v2
         run: npm ci
       
+      - name: Generate Prisma Client
+        working-directory: src/Services/auth-v2
+        run: npx prisma generate
+        env:
+          AUTH_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auth_test
+      
       - name: Run Prisma migrations
         working-directory: src/Services/auth-v2
         run: npx prisma migrate deploy

@@ -52,12 +52,13 @@ describe('RBAC (e2e)', () => {
             throw new Error('Admin role not found');
         }
 
-        // Update user to admin role
+        // Update user to admin role BEFORE logging in
         await prisma.user.update({
             where: { id: adminUser.id },
             data: { roleId: adminRole.id }
         });
 
+        // Now login with admin role already assigned
         const adminLogin = await request(app.getHttpServer())
             .post('/auth/login')
             .send({ username: 'admin_e2e', password: 'password' });
@@ -72,7 +73,7 @@ describe('RBAC (e2e)', () => {
             .post('/auth/login')
             .send({ username: 'contestant_e2e', password: 'password' });
         contestantToken = contestantLogin.body.access_token;
-    });
+    }, 60000); // Increase timeout to 60 seconds
 
     afterAll(async () => {
         await prisma.user.deleteMany({ where: { username: { in: ['admin_e2e', 'contestant_e2e'] } } });

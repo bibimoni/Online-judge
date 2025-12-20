@@ -21,5 +21,6 @@
                 "allowSyntheticDefaultImports": true
             }
         }
-    }
+    },
+    "maxWorkers": 1
 }
