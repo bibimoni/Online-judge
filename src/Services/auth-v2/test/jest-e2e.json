@@ -12,5 +12,14 @@
     },
     "moduleNameMapper": {
         "^src/(.*)$": "<rootDir>/../src/$1"
+    },
+    "globals": {
+        "ts-jest": {
+            "tsconfig": {
+                "types": ["jest", "node"],
+                "esModuleInterop": true,
+                "allowSyntheticDefaultImports": true
+            }
+        }
     }
 }

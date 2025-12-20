@@ -1,9 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { seedDatabase } from '../prisma/seed';
 import * as dotenv from 'dotenv';
+import * as bcrypt from 'bcrypt';
 
 dotenv.config();
 
@@ -26,18 +28,34 @@ describe('RBAC (e2e)', () => {
         // Ensure DB connection
         await prisma.$connect();
 
-        // Cleanup
+        // Seed database with roles and permissions from seed.ts
+        await seedDatabase(prisma);
+
+        // Cleanup test users
         await prisma.user.deleteMany({ where: { username: { in: ['admin_e2e', 'contestant_e2e'] } } });
 
-        // Create Admin
+        // Create Admin user
         await request(app.getHttpServer())
             .post('/auth/register')
             .send({ username: 'admin_e2e', password: 'password', email: 'admin_e2e@test.com' });
 
         const adminUser = await prisma.user.findUnique({ where: { username: 'admin_e2e' } });
+        
+        if (!adminUser) {
+            throw new Error('Admin user not created');
+        }
+
+        // Get admin role
+        const adminRole = await prisma.role.findUnique({ where: { name: 'admin' } });
+        
+        if (!adminRole) {
+            throw new Error('Admin role not found');
+        }
+
+        // Update user to admin role
         await prisma.user.update({
             where: { id: adminUser.id },
-            data: { role: { connect: { name: 'admin' } } }
+            data: { roleId: adminRole.id }
         });
 
         const adminLogin = await request(app.getHttpServer())
@@ -45,7 +63,7 @@ describe('RBAC (e2e)', () => {
             .send({ username: 'admin_e2e', password: 'password' });
         adminToken = adminLogin.body.access_token;
 
-        // Create Contestant
+        // Create Contestant (already has contestant role by default)
         await request(app.getHttpServer())
             .post('/auth/register')
             .send({ username: 'contestant_e2e', password: 'password', email: 'contestant_e2e@test.com' });

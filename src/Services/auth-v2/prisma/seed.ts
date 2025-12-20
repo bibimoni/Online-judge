@@ -1,8 +1,8 @@
 import { PrismaClient } from '../generated/client';
 import * as bcrypt from 'bcrypt';
-const prisma = new PrismaClient();
 
-async function main() {
+// Export the seed function so it can be reused in tests
+export async function seedDatabase(prisma: PrismaClient) {
   console.log('Starting seed...');
   const permissions = [
     { name: 'login', description: 'Can login to the system' },
@@ -110,4 +110,17 @@ async function main() {
   console.log('Admin user seeded');
 }
 
-main().finally(() => prisma.$disconnect());
+// Main function for running seed from CLI
+async function main() {
+  const prisma = new PrismaClient();
+  try {
+    await seedDatabase(prisma);
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+// Only run main if this file is executed directly
+if (require.main === module) {
+  main();
+}
