@@ -121,11 +121,13 @@ jobs:
   build-images:
     name: Build Docker Images
     runs-on: ubuntu-latest
-    needs: [test-go-services, test-auth-service]
+    # needs: [test-go-services, test-auth-service]
+    needs: [test-auth-service]
     if: github.event_name == 'push'
     strategy:
       matrix:
-        service: [submission-judge, problem, gateway, contest, auth-v2]
+        # service: [submission-judge, problem, gateway, contest, auth-v2]
+        service: [auth-v2]
     
     steps:
       - uses: actions/checkout@v4
