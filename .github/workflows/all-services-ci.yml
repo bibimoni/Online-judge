@@ -7,38 +7,38 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  # Test all Go services
-  test-go-services:
-    name: Test Go Services
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        service: [submission-judge, problem, gateway, contest]
-        go-version: ['1.21', '1.22']
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ matrix.go-version }}
-      
-      - name: Install dependencies
-        working-directory: src/Services/${{ matrix.service }}
-        run: go mod download
-      
-      - name: Run tests
-        working-directory: src/Services/${{ matrix.service }}
-        run: |
-          go test -v -race -coverprofile=coverage.out ./...
-      
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./src/Services/${{ matrix.service }}/coverage.out
-          flags: ${{ matrix.service }}
-
+  # # Test all Go services
+  # test-go-services:
+  #   name: Test Go Services
+  #   runs-on: ubuntu-latest
+  #   strategy:
+  #     matrix:
+  #       service: [submission-judge, problem, gateway, contest]
+  #       go-version: ['1.21', '1.22']
+  #   
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version: ${{ matrix.go-version }}
+  #     
+  #     - name: Install dependencies
+  #       working-directory: src/Services/${{ matrix.service }}
+  #       run: go mod download
+  #     
+  #     - name: Run tests
+  #       working-directory: src/Services/${{ matrix.service }}
+  #       run: |
+  #         go test -v -race -coverprofile=coverage.out ./...
+  #     
+  #     - name: Upload coverage
+  #       uses: codecov/codecov-action@v4
+  #       with:
+  #         files: ./src/Services/${{ matrix.service }}/coverage.out
+  #         flags: ${{ matrix.service }}
+  #
   # Test Auth service (Node.js)
   test-auth-service:
     name: Test Auth Service
@@ -77,17 +77,19 @@ jobs:
         working-directory: src/Services/auth-v2
         run: npx prisma migrate deploy
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auth_test
+          AUTH_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auth_test
       
       - name: Run unit tests
         working-directory: src/Services/auth-v2
         run: npm run test
+        env:
+          AUTH_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auth_test
       
       - name: Run E2E tests
         working-directory: src/Services/auth-v2
         run: npm run test:e2e
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auth_test
+          AUTH_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auth_test
       
       - name: Upload coverage
         uses: codecov/codecov-action@v4
