@@ -1,432 +1,480 @@
 package tests
 
 import (
-	"context"
-	"errors"
+	"bytes"
+	"encoding/json"
+	"fmt"
 	"io"
+	"net/http"
 	"testing"
 	"time"
-
-	domain "github.com/bibimoni/Online-judge/submission-judge/src/domain/entitiy"
-	subrepository "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/submission"
-	"github.com/bibimoni/Online-judge/submission-judge/src/pkg"
-	"github.com/bibimoni/Online-judge/submission-judge/src/pkg/memory"
-	isolateservice "github.com/bibimoni/Online-judge/submission-judge/src/service/isolate"
-	"github.com/bibimoni/Online-judge/submission-judge/src/service/judge/impl"
-	"github.com/bibimoni/Online-judge/submission-judge/src/service/problem"
-	"github.com/bibimoni/Online-judge/submission-judge/src/service/store"
-	usecase "github.com/bibimoni/Online-judge/submission-judge/src/usecase/wssubmission"
-	"github.com/rs/zerolog"
-	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-// --- Mocks ---
-
-// MockLanguage implements pkg.Language
-type MockLanguage struct {
-	IDFunc                func() string
-	DisplayNameFunc       func() string
-	DefaultFileNameFunc   func() string
-	ExecutableNameFunc    func() string
-	FileExtensionFunc     func() string
-	RunFunc               func(i *domain.Isolate, rc *domain.RunConfig, req *isolateservice.SubmissionRequest) error
-	RunCmdStrNoStreamFunc func(i *domain.Isolate, rc *domain.RunConfig, req *isolateservice.SubmissionRequest) ([]string, error)
-	CompileFunc           func(i *domain.Isolate, req *isolateservice.SubmissionRequest, stderr io.Writer) error
-}
-
-func (m *MockLanguage) ID() string {
-	if m.IDFunc != nil {
-		return m.IDFunc()
-	}
-	return "mock_lang"
-}
-func (m *MockLanguage) DisplayName() string     { return "Mock Language" }
-func (m *MockLanguage) DefaultFileName() string { return "main.mock" }
-func (m *MockLanguage) ExecutableName() string  { return "main" }
-func (m *MockLanguage) FileExtension() string   { return "mock" }
-func (m *MockLanguage) Run(i *domain.Isolate, rc *domain.RunConfig, req *isolateservice.SubmissionRequest) error {
-	if m.RunFunc != nil {
-		return m.RunFunc(i, rc, req)
-	}
-	return nil
-}
-func (m *MockLanguage) RunCmdStrNoStream(i *domain.Isolate, rc *domain.RunConfig, req *isolateservice.SubmissionRequest) ([]string, error) {
-	if m.RunCmdStrNoStreamFunc != nil {
-		return m.RunCmdStrNoStreamFunc(i, rc, req)
-	}
-	return []string{}, nil
-}
-func (m *MockLanguage) Compile(i *domain.Isolate, req *isolateservice.SubmissionRequest, stderr io.Writer) error {
-	if m.CompileFunc != nil {
-		return m.CompileFunc(i, req, stderr)
-	}
-	return nil
-}
-
-// MockStoreService
-type MockStoreService struct {
-	GetFunc func(id string) (pkg.Language, error)
-}
-
-func (m *MockStoreService) Get(id string) (pkg.Language, error) {
-	if m.GetFunc != nil {
-		return m.GetFunc(id)
-	}
-	return &MockLanguage{}, nil
-}
-func (m *MockStoreService) Register(l pkg.Language) {}
-func (m *MockStoreService) List() []pkg.Language    { return []pkg.Language{} }
-func (m *MockStoreService) Contains(id string) bool { return true }
-
-// MockProblemService
-type MockProblemService struct {
-	GetFunc                func(ctx context.Context, id string) (*problem.ProblemServiceGetOutput, error)
-	GetTestCaseAddrFunc    func(problemId string, tcType problem.TestCaseType, testNum int) (string, error)
-	GetTestCaseDirAddrFunc func(problemId string, tcType problem.TestCaseType) (string, error)
-	GetCheckerAddrFunc     func(problemId string) (string, error)
-	GetInteractorAddrFunc  func(problemId string) (string, error)
-	GetCrossRunAddrFunc    func(problemId string) (string, error)
-}
-
-func (m *MockProblemService) Get(ctx context.Context, id string) (*problem.ProblemServiceGetOutput, error) {
-	if m.GetFunc != nil {
-		return m.GetFunc(ctx, id)
-	}
-	return nil, nil
-}
-func (m *MockProblemService) GetTestCaseAddr(problemId string, tcType problem.TestCaseType, testNum int) (string, error) {
-	if m.GetTestCaseAddrFunc != nil {
-		return m.GetTestCaseAddrFunc(problemId, tcType, testNum)
-	}
-	return "/tmp/mock/testcase", nil
-}
-func (m *MockProblemService) GetTestCaseDirAddr(problemId string, tcType problem.TestCaseType) (string, error) {
-	return "/tmp/mock/testcase_dir", nil
-}
-func (m *MockProblemService) GetCheckerAddr(problemId string) (string, error) {
-	if m.GetCheckerAddrFunc != nil {
-		return m.GetCheckerAddrFunc(problemId)
-	}
-	return "/tmp/mock/checker", nil
-}
-func (m *MockProblemService) GetInteractorAddr(problemId string) (string, error) {
-	return "/tmp/mock/interactor", nil
-}
-func (m *MockProblemService) GetCrossRunAddr(problemId string) (string, error) {
-	return "/tmp/mock/crossrun", nil
-}
-
-// MockIsolateService
-type MockIsolateService struct {
-	NewIsolateFunc        func(id int) (*domain.Isolate, error)
-	CleanupFunc           func(i *domain.Isolate) error
-	InitFunc              func(i *domain.Isolate) error
-	RunFunc               func(i *domain.Isolate, rc domain.RunConfig, req *isolateservice.SubmissionRequest, toRun string, toRunArgs ...string) error
-	RunBinaryFunc         func(i *domain.Isolate, rc domain.RunConfig, req *isolateservice.SubmissionRequest, exeName string) error
-	RunCmdStrNoStreamFunc func(i *domain.Isolate, rc domain.RunConfig, req *isolateservice.SubmissionRequest, toRun string, toRunArgs ...string) ([]string, error)
-}
-
-func (m *MockIsolateService) NewIsolate(id int) (*domain.Isolate, error) {
-	return &domain.Isolate{ID: id}, nil
-}
-func (m *MockIsolateService) Cleanup(i *domain.Isolate) error { return nil }
-func (m *MockIsolateService) Init(i *domain.Isolate) error {
-	if m.InitFunc != nil {
-		return m.InitFunc(i)
-	}
-	return nil
-}
-func (m *MockIsolateService) Run(i *domain.Isolate, rc domain.RunConfig, req *isolateservice.SubmissionRequest, toRun string, toRunArgs ...string) error {
-	return nil
-}
-func (m *MockIsolateService) RunBinary(i *domain.Isolate, rc domain.RunConfig, req *isolateservice.SubmissionRequest, exeName string) error {
-	if m.RunBinaryFunc != nil {
-		return m.RunBinaryFunc(i, rc, req, exeName)
-	}
-	return nil
-}
-func (m *MockIsolateService) RunCmdStrNoStream(i *domain.Isolate, rc domain.RunConfig, req *isolateservice.SubmissionRequest, toRun string, toRunArgs ...string) ([]string, error) {
-	if m.RunCmdStrNoStreamFunc != nil {
-		return m.RunCmdStrNoStreamFunc(i, rc, req, toRun, toRunArgs...)
-	}
-	return []string{}, nil
-}
-
-// MockPoolService
-type MockPoolService struct {
-	GetFunc func() (*domain.Isolate, error)
-	PutFunc func(i *domain.Isolate)
-	LenFunc func() int
-}
-
-func (m *MockPoolService) Get() (*domain.Isolate, error) {
-	if m.GetFunc != nil {
-		return m.GetFunc()
-	}
-	logger := zerolog.New(io.Discard)
-	return &domain.Isolate{ID: 1, Inited: true, Logger: &logger}, nil
-}
-func (m *MockPoolService) Put(i *domain.Isolate) {
-	if m.PutFunc != nil {
-		m.PutFunc(i)
-	}
-}
-func (m *MockPoolService) Len() int { return 1 }
-
-// MockEvaluationRepository
-type MockEvaluationRepository struct {
-	GetEvalFunc               func(ctx context.Context, evalId string) (*domain.EvaluationResult, error)
-	UpdateFinalFunc           func(ctx context.Context, evalId string, verdict domain.Verdict, cpuTime float64, memoryUsage memory.Memory, nsucess int, points int, message string) error
-	UpdateCaseFunc            func(ctx context.Context, evalId string, verdictCase domain.Verdict, cpuTimeCase float64, memoryUsageCase memory.Memory, outputCase string, pointsCase int, cpuTime float64, memoryUsage memory.Memory, nsucess int) error
-	GetEvalBySubmissionIdFunc func(ctx context.Context, submissionId bson.ObjectID) (*domain.EvaluationResult, error)
-}
-
-func (m *MockEvaluationRepository) CreateEval(ctx context.Context, submissionId string, TL int, ML memory.Memory, nCase int) (string, error) {
-	return "eval1", nil
-}
-func (m *MockEvaluationRepository) UpdateVerdict(ctx context.Context, evalId string, vert domain.Verdict) error {
-	return nil
-}
-func (m *MockEvaluationRepository) UpdateCase(ctx context.Context, evalId string, verdictCase domain.Verdict, cpuTimeCase float64, memoryUsageCase memory.Memory, outputCase string, pointsCase int, cpuTime float64, memoryUsage memory.Memory, nsucess int) error {
-	if m.UpdateCaseFunc != nil {
-		return m.UpdateCaseFunc(ctx, evalId, verdictCase, cpuTimeCase, memoryUsageCase, outputCase, pointsCase, cpuTime, memoryUsage, nsucess)
-	}
-	return nil
-}
-func (m *MockEvaluationRepository) UpdateFinal(ctx context.Context, evalId string, verdict domain.Verdict, cpuTime float64, memoryUsage memory.Memory, nsucess int, points int, message string) error {
-	if m.UpdateFinalFunc != nil {
-		return m.UpdateFinalFunc(ctx, evalId, verdict, cpuTime, memoryUsage, nsucess, points, message)
-	}
-	return nil
-}
-func (m *MockEvaluationRepository) GetEval(ctx context.Context, evalId string) (*domain.EvaluationResult, error) {
-	if m.GetEvalFunc != nil {
-		return m.GetEvalFunc(ctx, evalId)
-	}
-	return &domain.EvaluationResult{SubmissionId: bson.NewObjectID()}, nil
-}
-func (m *MockEvaluationRepository) GetEvalBson(ctx context.Context, evalId bson.ObjectID) (*domain.EvaluationResult, error) {
-	return nil, nil
-}
-func (m *MockEvaluationRepository) GetEvalBySubmissionId(ctx context.Context, submissionId bson.ObjectID) (*domain.EvaluationResult, error) {
-	if m.GetEvalBySubmissionIdFunc != nil {
-		return m.GetEvalBySubmissionIdFunc(ctx, submissionId)
-	}
-	return &domain.EvaluationResult{
-		SubmissionId: submissionId,
-		EvalStatus:   domain.PENDING,
-	}, nil
-}
-
-// MockCheckerService
-type MockCheckerService struct {
-	RunCheckerFunc func(checkerAddr string, inputAddr string, outputAddr string, answerAddr string) (domain.Verdict, int, string, error)
-}
-
-func (m *MockCheckerService) RunChecker(checkerAddr string, inputAddr string, outputAddr string, answerAddr string) (domain.Verdict, int, string, error) {
-	if m.RunCheckerFunc != nil {
-		return m.RunCheckerFunc(checkerAddr, inputAddr, outputAddr, answerAddr)
-	}
-	return domain.ACCEPTED, 0, "ok", nil
-}
-
-// MockInteractorService
-type MockInteractorService struct{}
-
-func (m *MockInteractorService) RunInteractor(crossRunAddr, interactorAddr, inputAddr, outputAddr, answerAddr, reportAddr string, isolateStr []string) (domain.Verdict, int, string, error) {
-	return domain.ACCEPTED, 0, "ok", nil
-}
-
-// MockRedisSubmissionRepository
-type MockRedisSubmissionRepository struct {
-	PulishSubmissionFunc func(ctx context.Context, res usecase.WSSubmissionResponse) error
-}
-
-func (m *MockRedisSubmissionRepository) PulishSubmission(ctx context.Context, res usecase.WSSubmissionResponse) error {
-	if m.PulishSubmissionFunc != nil {
-		return m.PulishSubmissionFunc(ctx, res)
-	}
-	return nil
-}
-func (m *MockRedisSubmissionRepository) Subscribe(ctx context.Context, channelId string) (<-chan *usecase.WSSubmissionResponse, error) {
-	return nil, nil
-}
-func (m *MockRedisSubmissionRepository) GetChannelString(problemId, username, submissionId string) string {
-	return ""
-}
-func (m *MockRedisSubmissionRepository) PushSubmissionJob(ctx context.Context, req *isolateservice.SubmissionRequest) error {
-	return nil
-}
-func (m *MockRedisSubmissionRepository) PopSubmissionJob(ctx context.Context) (*isolateservice.SubmissionRequest, error) {
-	return nil, nil
-}
-
-// MockSubmissionRepository
-type MockSubmissionRepository struct {
-	FindSubmissionFunc func(ctx context.Context, submissionId string) (*domain.Submission, error)
-}
-
-func (m *MockSubmissionRepository) CreateSubmission(ctx context.Context, params subrepository.CreateSubmissionInput) (string, error) {
-	return "", nil
-}
-func (m *MockSubmissionRepository) FindSubmission(ctx context.Context, submissionId string) (*domain.Submission, error) {
-	if m.FindSubmissionFunc != nil {
-		return m.FindSubmissionFunc(ctx, submissionId)
-	}
-	return &domain.Submission{
-		Id:        bson.NewObjectID(),
-		ProblemId: "prob1",
-		Username:  "user1",
-		Type:      domain.SubmissionType(domain.ICPC),
-		Timestamp: time.Now(),
-	}, nil
-}
-func (m *MockSubmissionRepository) FindAllProblemSubmissionIds(ctx context.Context, problemId string) ([]string, error) {
-	return nil, nil
-}
-
-// MockSourcecodeRepository
-type MockSourcecodeRepository struct {
-	GetSourceBySubmissionIdFunc func(ctx context.Context, submissionId bson.ObjectID) (*domain.SourceCode, error)
-}
-
-func (m *MockSourcecodeRepository) CreateSourcecode(ctx context.Context, source string, languageId string, submissionId string) (string, error) {
-	return "", nil
-}
-func (m *MockSourcecodeRepository) GetSourcecode(ctx context.Context, id string) (*domain.SourceCode, error) {
-	return nil, nil
-}
-func (m *MockSourcecodeRepository) GetSourcecodeBson(ctx context.Context, bid bson.ObjectID) (*domain.SourceCode, error) {
-	return nil, nil
-}
-func (m *MockSourcecodeRepository) GetSourceBySubmissionId(ctx context.Context, submissionId bson.ObjectID) (*domain.SourceCode, error) {
-	if m.GetSourceBySubmissionIdFunc != nil {
-		return m.GetSourceBySubmissionIdFunc(ctx, submissionId)
-	}
-	return &domain.SourceCode{
-		LanguageId: "cpp",
-		SourceCode: "int main() {}",
-	}, nil
-}
-
-// --- Tests ---
-
-func TestJudgeService_JudgeStart_AC(t *testing.T) {
-	// 0. Setup Store
-	store.DefaultStore = &MockStoreService{}
-
-	// 1. Setup Mocks
-	mockProblemService := &MockProblemService{}
-	mockIsolateService := &MockIsolateService{
-		InitFunc: func(i *domain.Isolate) error {
-			i.Inited = true
-			return nil
-		},
-	}
-	mockPoolService := &MockPoolService{}
-	mockEvalRepo := &MockEvaluationRepository{}
-	mockCheckerService := &MockCheckerService{}
-	mockInteractorService := &MockInteractorService{}
-	mockRedisRepo := &MockRedisSubmissionRepository{}
-	mockSubRepo := &MockSubmissionRepository{}
-	mockSourceRepo := &MockSourcecodeRepository{}
-
-	// 2. Initialize JudgeService
-	js := impl.NewJudgeServiceImpl(
-		mockPoolService,
-		mockProblemService,
-		mockEvalRepo,
-		mockCheckerService,
-		mockInteractorService,
-		mockRedisRepo,
-		mockSubRepo,
-		mockSourceRepo,
-		mockIsolateService,
+// TestEndToEndJudgingFlow tests the complete judging flow
+// This test requires all services to be running:
+// - Problem service (port 3000)
+// - Auth service (port 50051) via Gateway (port 81)
+// - Submission service via Gateway (port 81)
+func TestEndToEndJudgingFlow(t *testing.T) {
+	// Configuration
+	const (
+		problemServiceURL = "http://localhost:3000"
+		gatewayURL        = "http://localhost:81"
+		judgeWaitTime     = 60 * time.Second // Wait 1 minute for judging to complete
 	)
 
-	// 3. Prepare Request
-	ctx := context.Background()
-	mockLang := &MockLanguage{
-		CompileFunc: func(i *domain.Isolate, req *isolateservice.SubmissionRequest, stderr io.Writer) error {
-			return nil // Compilation success
+	// Test data - 4 submissions as specified
+	testSubmissions := []TestSubmission{
+		{
+			Name:      "AC Solution for 445985",
+			ProblemID: "445985",
+			Code: `/**
+ * Author: distiled
+ */
+#include <bits/stdc++.h>
+using namespace std;
+ 
+#ifdef DEBUG
+#include </Users/distiled/codeStuff/templates/debug.h>
+#else
+#define dbg(x...)
+#endif
+#define int int64_t
+ 
+signed main() {
+  ios::sync_with_stdio(false);
+  cin.tie(0);
+  int tt;
+  cin >> tt;
+  while (tt--) {
+    int n, r, c;
+    cin >> n >> r >> c;
+    vector<int> h(n);
+    for (int i = 0; i < n; i++)
+      cin >> h[i];
+    vector<int> w(n);
+    for (int i = 0; i < n; i++)
+      cin >> w[i];
+ 
+    int ans = 0;
+    for (int i = 0; i < n; i++) {
+      ans += ((w[i] + r - 1) / r) * ((h[i] + c - 1) / c);
+    }
+    cout << ans << '\n';
+  }
+}`,
+			Language:        "cpp14",
+			SubmissionType:  "ICPC",
+			ExpectedVerdict: "ACCEPTED",
 		},
-		RunFunc: func(i *domain.Isolate, rc *domain.RunConfig, req *isolateservice.SubmissionRequest) error {
-			return nil // Run success
+		{
+			Name:      "MLE Solution for 445985",
+			ProblemID: "445985",
+			Code: `#include <bits/stdc++.h>
+using namespace std;
+
+signed main() {
+  ios::sync_with_stdio(false);
+  cin.tie(0);
+  
+  // Allocate a huge array to trigger MLE
+  // Allocating ~500MB (500 million integers * 8 bytes = 4GB)
+  vector<long long> huge_array(500000000, 0);
+  
+  int tt;
+  cin >> tt;
+  while (tt--) {
+    int n, r, c;
+    cin >> n >> r >> c;
+    vector<int> h(n);
+    for (int i = 0; i < n; i++)
+      cin >> h[i];
+    vector<int> w(n);
+    for (int i = 0; i < n; i++)
+      cin >> w[i];
+    
+    long long ans = 0;
+    for (int i = 0; i < n; i++) {
+      ans += ((w[i] + r - 1) / r) * ((h[i] + c - 1) / c);
+      // Use the huge array to prevent compiler optimization
+      huge_array[i % 1000] = ans;
+    }
+    cout << ans << '\n';
+  }
+  return 0;
+}`,
+			Language:        "cpp14",
+			SubmissionType:  "ICPC",
+			ExpectedVerdict: "MEMORY_LIMIT_EXCEEDED",
+		},
+		{
+			Name:      "TLE Solution for 445985",
+			ProblemID: "445985",
+			Code: `/**
+ * Author: distiled
+ */
+#include <bits/stdc++.h>
+using namespace std;
+ 
+#ifdef DEBUG
+#include </Users/distiled/codeStuff/templates/debug.h>
+#else
+#define dbg(x...)
+#endif
+#define int int64_t
+ 
+signed main() {
+  ios::sync_with_stdio(false);
+  cin.tie(0);
+  int tt;
+  cin >> tt;
+  while (tt--) {
+    int n, r, c;
+ while(1) {}
+   cin >> n >> r >> c;
+    vector<int> h(n);
+    for (int i = 0; i < n; i++)
+      cin >> h[i];
+    vector<int> w(n);
+    for (int i = 0; i < n; i++)
+      cin >> w[i];
+ 
+    int ans = 0;
+    for (int i = 0; i < n; i++) {
+      ans += ((w[i] + r - 1) / r) * ((h[i] + c - 1) / c);
+    }
+    cout << ans << '\n';
+  }
+}`,
+			Language:        "cpp14",
+			SubmissionType:  "ICPC",
+			ExpectedVerdict: "TIME_LIMIT_EXCEEDED",
+		},
+		{
+			Name:      "AC Solution for 440176",
+			ProblemID: "440176",
+			Code: `/**
+ * Author: distiled
+ */
+#include <bits/stdc++.h>
+using namespace std;
+ 
+#ifdef DEBUG
+#include </Users/distiled/codeStuff/templates/debug.h>
+#else
+#define dbg(x...)
+#endif
+#define int int64_t
+ 
+signed main() {
+  ios::sync_with_stdio(false);
+  cin.tie(0);
+  int tt;
+  cin >> tt;
+  while (tt--) {
+    int n, r, c;
+    cin >> n >> r >> c;
+    vector<int> h(n);
+    for (int i = 0; i < n; i++)
+      cin >> h[i];
+    vector<int> w(n);
+    for (int i = 0; i < n; i++)
+      cin >> w[i];
+ 
+    int ans = 0;
+    for (int i = 0; i < n; i++) {
+      ans += ((w[i] + r - 1) / r) * ((h[i] + c - 1) / c);
+    }
+    cout << ans << '\n';
+  }
+}`,
+			Language:        "cpp14",
+			SubmissionType:  "ICPC",
+			ExpectedVerdict: "ACCEPTED",
 		},
 	}
 
-	req := &isolateservice.SubmissionRequest{
-		SubmissionId:   "sub1",
-		ProblemId:      "prob1",
-		IService:       mockIsolateService,
-		LanguageId:     "cpp",
-		EvalId:         "eval1",
-		SubmissionType: domain.SubmissionType(domain.ICPC),
-	}
-	problemInfo := &problem.ProblemServiceGetOutput{
-		TestNum:     1,
-		TimeLimit:   1000,
-		MemoryLimit: 256 * 1024 * 1024,
-	}
+	var accessToken string
+	submissionIDs := make([]string, 0)
 
-	// 4. Run JudgeStart
-	err := js.JudgeStart(ctx, mockLang, req, problemInfo)
-	if err != nil {
-		// As expected, it might fail due to FS, but we want to ensure it doesn't panic.
-		t.Logf("JudgeStart failed (expected due to FS): %v", err)
-	}
-}
+	t.Run("1_InitializeProblems", func(t *testing.T) {
+		t.Log("Step 1: Initializing problems 445985 and 440176...")
+		
+		// Initialize problem 445985
+		if err := initializeProblem(problemServiceURL, "445985"); err != nil {
+			t.Logf("Warning: Failed to initialize problem 445985: %v (may already exist)", err)
+		} else {
+			t.Log("✓ Problem 445985 initialized successfully")
+		}
 
-func TestJudgeService_JudgeStart_CE(t *testing.T) {
-	store.DefaultStore = &MockStoreService{}
+		// Initialize problem 440176
+		if err := initializeProblem(problemServiceURL, "440176"); err != nil {
+			t.Logf("Warning: Failed to initialize problem 440176: %v (may already exist)", err)
+		} else {
+			t.Log("✓ Problem 440176 initialized successfully")
+		}
 
-	mockProblemService := &MockProblemService{}
-	mockIsolateService := &MockIsolateService{}
-	mockPoolService := &MockPoolService{}
-	mockEvalRepo := &MockEvaluationRepository{
-		UpdateFinalFunc: func(ctx context.Context, evalId string, verdict domain.Verdict, cpuTime float64, memoryUsage memory.Memory, nsucess int, points int, message string) error {
-			if verdict != domain.COMPILATION_ERROR {
-				t.Errorf("Expected COMPILATION_ERROR, got %v", verdict)
+		// Wait a bit for problems to be fully ready
+		time.Sleep(3 * time.Second)
+	})
+
+	t.Run("2_AuthenticateAdmin", func(t *testing.T) {
+		t.Log("Step 2: Authenticating with admin/bkacbkac...")
+		
+		token, err := authenticate(gatewayURL, "admin", "bkacbkac")
+		if err != nil {
+			t.Fatalf("Failed to authenticate: %v", err)
+		}
+		
+		accessToken = token
+		t.Logf("✓ Authentication successful, token received (length: %d)", len(token))
+	})
+
+	t.Run("3_SubmitAllSolutions", func(t *testing.T) {
+		t.Log("Step 3: Submitting all 4 test solutions...")
+		
+		for i, sub := range testSubmissions {
+			t.Run(sub.Name, func(t *testing.T) {
+				submissionID, err := submitSolution(gatewayURL, sub, accessToken)
+				if err != nil {
+					t.Fatalf("Failed to submit %s: %v", sub.Name, err)
+				}
+				
+				submissionIDs = append(submissionIDs, submissionID)
+				t.Logf("✓ Submitted %s, ID: %s", sub.Name, submissionID)
+			})
+
+			// Small delay between submissions
+			if i < len(testSubmissions)-1 {
+				time.Sleep(500 * time.Millisecond)
 			}
-			return nil
-		},
-	}
-	mockCheckerService := &MockCheckerService{}
-	mockInteractorService := &MockInteractorService{}
-	mockRedisRepo := &MockRedisSubmissionRepository{}
-	mockSubRepo := &MockSubmissionRepository{}
-	mockSourceRepo := &MockSourcecodeRepository{}
+		}
 
-	js := impl.NewJudgeServiceImpl(
-		mockPoolService,
-		mockProblemService,
-		mockEvalRepo,
-		mockCheckerService,
-		mockInteractorService,
-		mockRedisRepo,
-		mockSubRepo,
-		mockSourceRepo,
-		mockIsolateService,
-	)
+		t.Logf("✓ All %d submissions created successfully", len(submissionIDs))
+	})
 
-	ctx := context.Background()
-	mockLang := &MockLanguage{
-		CompileFunc: func(i *domain.Isolate, req *isolateservice.SubmissionRequest, stderr io.Writer) error {
-			return errors.New("compilation failed") // Simulate compile error
-		},
+	t.Run("4_WaitForJudging", func(t *testing.T) {
+		t.Logf("Step 4: Waiting %v for all submissions to be judged...", judgeWaitTime)
+		time.Sleep(judgeWaitTime)
+		t.Log("✓ Wait completed")
+	})
+
+	t.Run("5_VerifySubmissions", func(t *testing.T) {
+		t.Log("Step 5: Verifying all submission results...")
+		
+		if len(submissionIDs) != len(testSubmissions) {
+			t.Fatalf("Mismatch: expected %d submissions but got %d IDs", len(testSubmissions), len(submissionIDs))
+		}
+
+		for i, submissionID := range submissionIDs {
+			sub := testSubmissions[i]
+			t.Run(sub.Name, func(t *testing.T) {
+				result, err := getSubmissionResult(gatewayURL, submissionID, accessToken)
+				if err != nil {
+					t.Fatalf("Failed to get result for %s (ID: %s): %v", sub.Name, submissionID, err)
+				}
+
+				t.Logf("Submission Details:")
+				t.Logf("  Name: %s", sub.Name)
+				t.Logf("  ID: %s", submissionID)
+				t.Logf("  Problem: %s", sub.ProblemID)
+				t.Logf("  Verdict: %s", result.Verdict)
+				t.Logf("  Status: %s", result.Status)
+				
+				if result.Time > 0 {
+					t.Logf("  Time: %.3fs", result.Time)
+				}
+				if result.Memory != "" {
+					t.Logf("  Memory: %s", result.Memory)
+				}
+
+				// Verify the submission was judged (not pending)
+				if result.Status == "PENDING" || result.Status == "JUDGING" {
+					t.Errorf("Submission is still %s after wait period", result.Status)
+				}
+
+				t.Logf("✓ Submission %s verified successfully", submissionID)
+			})
+		}
+
+		t.Logf("✓ All %d submissions verified", len(submissionIDs))
+	})
+}
+
+// Helper structures
+type TestSubmission struct {
+	Name            string
+	ProblemID       string
+	Code            string
+	Language        string
+	SubmissionType  string
+	ExpectedVerdict string
+}
+
+type SubmissionResult struct {
+	ID          string  `json:"id"`
+	ProblemID   string  `json:"problem_id"`
+	UserID      string  `json:"user_id"`
+	Code        string  `json:"code"`
+	Language    string  `json:"language"`
+	Verdict     string  `json:"verdict"`
+	Status      string  `json:"status"`
+	Time        float64 `json:"time"`
+	Memory      string  `json:"memory"`
+	Points      int     `json:"points"`
+	TotalPoints int     `json:"total_points"`
+	PassedTests int     `json:"passed_tests"`
+	TotalTests  int     `json:"total_tests"`
+	Message     string  `json:"message"`
+	CreatedAt   string  `json:"created_at"`
+}
+
+type SubmissionResponse struct {
+	Data struct {
+		Message string `json:"message"`
+		ID      string `json:"id"`
+	} `json:"data"`
+	Success bool `json:"success"`
+}
+
+type AuthResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	ExpiresIn   int    `json:"expires_in"`
+}
+
+// Helper functions
+
+func initializeProblem(baseURL, problemID string) error {
+	url := fmt.Sprintf("%s/problem/add?problemId=%s", baseURL, problemID)
+	resp, err := http.Post(url, "application/json", nil)
+	if err != nil {
+		return fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("status %d, body: %s", resp.StatusCode, string(body))
 	}
 
-	req := &isolateservice.SubmissionRequest{
-		SubmissionId:   "sub2",
-		ProblemId:      "prob1",
-		IService:       mockIsolateService,
-		EvalId:         "eval2",
-		SubmissionType: domain.SubmissionType(domain.ICPC),
-	}
-	problemInfo := &problem.ProblemServiceGetOutput{}
+	return nil
+}
 
-	err := js.JudgeStart(ctx, mockLang, req, problemInfo)
-	if err == nil {
-		t.Error("Expected error from JudgeStart due to CE")
+func authenticate(baseURL, username, password string) (string, error) {
+	loginData := map[string]string{
+		"username": username,
+		"password": password,
 	}
+
+	jsonData, err := json.Marshal(loginData)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal login data: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/api/v1/auth/login", baseURL)
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("authentication failed: status %d, body: %s", resp.StatusCode, string(body))
+	}
+
+	var authResp AuthResponse
+	if err := json.Unmarshal(body, &authResp); err != nil {
+		return "", fmt.Errorf("failed to parse response: %w, body: %s", err, string(body))
+	}
+
+	if authResp.AccessToken == "" {
+		return "", fmt.Errorf("no access token in response: %s", string(body))
+	}
+
+	return authResp.AccessToken, nil
+}
+
+func submitSolution(baseURL string, sub TestSubmission, token string) (string, error) {
+	submitData := map[string]string{
+		"problem_id":      sub.ProblemID,
+		"code":            sub.Code,
+		"language":        sub.Language,
+		"submission_type": sub.SubmissionType,
+	}
+
+	jsonData, err := json.Marshal(submitData)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal submission data: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/api/v1/submission/submit", baseURL)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return "", fmt.Errorf("submission failed: status %d, body: %s", resp.StatusCode, string(body))
+	}
+
+	var submitResp SubmissionResponse
+	if err := json.Unmarshal(body, &submitResp); err != nil {
+		return "", fmt.Errorf("failed to parse response: %w, body: %s", err, string(body))
+	}
+
+	if !submitResp.Success {
+		return "", fmt.Errorf("submission unsuccessful: %s", submitResp.Data.Message)
+	}
+
+	if submitResp.Data.ID == "" {
+		return "", fmt.Errorf("no submission ID in response: %s", string(body))
+	}
+
+	return submitResp.Data.ID, nil
+}
+
+func getSubmissionResult(baseURL, submissionID, token string) (*SubmissionResult, error) {
+	url := fmt.Sprintf("%s/api/v1/submission/view/%s", baseURL, submissionID)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get submission: status %d, body: %s", resp.StatusCode, string(body))
+	}
+
+	var result SubmissionResult
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w, body: %s", err, string(body))
+	}
+
+	return &result, nil
 }
