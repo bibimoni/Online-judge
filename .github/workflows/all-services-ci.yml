@@ -124,16 +124,24 @@ jobs:
         with:
           go-version: '1.22'
       
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Cache Docker layers
+      - name: Cache Docker Images
+        id: docker-cache
         uses: actions/cache@v4
         with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          path: /tmp/docker-images
+          key: ${{ runner.os }}-docker-${{ hashFiles('src/Services/**/Dockerfile', 'src/Services/**/go.sum', 'src/Services/**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-buildx-
+            ${{ runner.os }}-docker-
+      
+      - name: Load cached Docker images
+        if: steps.docker-cache.outputs.cache-hit == 'true'
+        run: |
+          echo "Loading cached Docker images..."
+          if [ -f /tmp/docker-images/images.tar ]; then
+            docker load -i /tmp/docker-images/images.tar || echo "Failed to load cache, will rebuild"
+          else
+            echo "No cached images found"
+          fi
       
       - name: Cache Database Volumes
         uses: actions/cache@v4
@@ -356,6 +364,15 @@ jobs:
         run: |
           go test -v -timeout 10m ./src/tests -run TestEndToEndJudgingFlow
       
+      - name: Save Docker images to cache
+        if: always()
+        run: |
+          echo "Saving Docker images for caching..."
+          mkdir -p /tmp/docker-images
+          docker compose images --format json | jq -r '.[].Repository + ":" + .[].Tag' | grep -v "<none>" | xargs -I {} echo "Saving {}"
+          docker save $(docker compose images --format json | jq -r '.[].Repository + ":" + .[].Tag' | grep -v "<none>" | tr '\n' ' ') -o /tmp/docker-images/images.tar 2>/dev/null || echo "Some images may not exist yet"
+          ls -lh /tmp/docker-images/
+      
       - name: Show service logs on failure
         if: failure()
         run: |
@@ -374,7 +391,7 @@ jobs:
       
       - name: Stop services
         if: always()
-        run: docker compose down -v
+        run: docker compose down
 
   # Security scan
   security-scan:
