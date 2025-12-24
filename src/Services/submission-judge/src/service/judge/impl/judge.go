@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
+
 	// "fmt"
 	"os"
 	"strconv"
@@ -25,6 +27,7 @@ import (
 	judgeutils "github.com/bibimoni/Online-judge/submission-judge/src/service/judge/utils"
 	poolservice "github.com/bibimoni/Online-judge/submission-judge/src/service/pool"
 	"github.com/bibimoni/Online-judge/submission-judge/src/service/problem"
+
 	// "github.com/bibimoni/Online-judge/submission-judge/src/service/store"
 	isubmission_utils "github.com/bibimoni/Online-judge/submission-judge/src/usecase/submission/utils"
 )
@@ -461,6 +464,78 @@ func (js *JudgeServiceImpl) JudgeICPC(
 		return err
 	}
 	i.Logger.Debug().Msgf("ICPC Judging completed, All %d test cases passed!", problemInfo.TestNum)
+	return nil
+}
+
+func (js *JudgeServiceImpl) JudgeIOI(
+	ctx context.Context,
+	i *domain.Isolate,
+	lang pkg.Language,
+	req *isolateservice.SubmissionRequest,
+	problemInfo *problem.ProblemServiceGetOutput,
+) error {
+	i.Logger.Error().Msgf("IOI mode: Judging %d test cases with scoring", problemInfo.TestNum)
+	var (
+		curCpuTime     float64       = 0
+		curMemoryUsage memory.Memory = 0
+	)
+
+	testScores := make(map[int]float64)
+	testMaxScores := make(map[int]float64)
+	verdicts := make(map[int]domain.Verdict)
+
+	for tc := 1; tc <= problemInfo.TestNum; tc += 1 {
+		idx := tc - 1
+		result, err := js.RunCase(ctx, i, lang, req, problemInfo, tc, &curCpuTime, &curMemoryUsage)
+		if err != nil {
+			i.Logger.Error().Err(err).Msgf("Error running test case %d", tc)
+			testScores[idx] = 0.0
+			verdicts[idx] = domain.JUDGEMENT_FAILED
+			continue
+		}
+
+		maxScore := 100.0
+		if idx < len(problemInfo.TestMaxScores) {
+			maxScore = problemInfo.TestMaxScores[idx]
+		}
+
+		actualScore := (result.Score / 100.0) * maxScore
+		testScores[idx] = actualScore
+		testMaxScores[idx] = maxScore
+		verdicts[idx] = result.Verdict
+
+		i.Logger.Debug().Msgf("Test case %d: verdict=%s, score=%.2f/%.2f", tc, result.Verdict, actualScore, maxScore)
+		updateErr := js.updateCase(ctx, req.EvalId, result.Verdict, result.Time, result.Memory, result.Message, int(actualScore), curCpuTime, curMemoryUsage, tc)
+		if updateErr != nil {
+			i.Logger.Panic().Err(updateErr).Msgf("Database error")
+			return updateErr
+		}
+	}
+
+	totalScore, totalMaxScore := CalculateTotalScore(problemInfo, testScores, testMaxScores, verdicts, i)
+	var finalVerdict domain.Verdict
+	if totalScore >= totalMaxScore {
+		finalVerdict = domain.ACCEPTED
+	} else {
+		finalVerdict = domain.PARTIAL_RESULT
+	}
+
+	nSuccess := 0
+	for tc := 1; tc <= problemInfo.TestNum; tc += 1 {
+		idx := tc - 1
+		if verdicts[idx] == domain.ACCEPTED {
+			nSuccess += 1
+		}
+	}
+
+	message := fmt.Sprintf("Total Score: %.2f/%.2f", min(totalScore, totalMaxScore), totalMaxScore)
+	err := js.updateFinal(ctx, req.EvalId, finalVerdict, curCpuTime, curMemoryUsage, nSuccess, int(totalScore), message)
+	if err != nil {
+		i.Logger.Panic().Err(err).Msgf("Database error")
+		return err
+	}
+
+	i.Logger.Info().Msgf("IOI: %s - %s", finalVerdict, message)
 	return nil
 }
 

@@ -33,7 +33,7 @@ type JudgeService interface {
 		tc int,
 		curCpu *float64,
 		curMem *memory.Memory,
-	) (done bool, err error)
+	) (*TestCaseResult, error)
 }
 
 type RunVerdict struct {
