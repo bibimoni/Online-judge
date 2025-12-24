@@ -94,11 +94,14 @@ func MapExitCodeToVerdict(code int) domain.Verdict {
 		return domain.FAIL
 	case 4:
 		return domain.DIRT
-	case 7:
+	case 5, 7:
 		return domain.POINTS
 	case 8:
 		return domain.UNEXPECTED_EOF
 	default:
+		if code >= 16 {
+			return domain.PARTIAL_RESULT
+		}
 		return domain.JUDGEMENT_FAILED
 	}
 }

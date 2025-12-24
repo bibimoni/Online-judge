@@ -437,17 +437,25 @@ func (js *JudgeServiceImpl) checkVerdict(vert *judge.RunVerdict, checkerAddr, in
 	switch vert.Status {
 	case "TO":
 		return domain.TIME_LIMIT_EXCEEDED, vert.Message, nil
-	case "RE", "SG":
-		return domain.RUNTIME_ERROR, vert.Message, nil
 	case "XX":
 		return domain.JUDGEMENT_FAILED, vert.Message, nil
+	}
+
+	if vert.CgOomKilled == 1 {
+		config.GetLogger().Debug().Msgf("MLE detected via cg-oom-killed")
+		return domain.MEMORY_LIMIT_EXCEEDED, vert.Message, nil
+	}
+
+	switch vert.Status {
+	case "RE", "SG":
+		return domain.RUNTIME_ERROR, vert.Message, nil
 	}
 
 	// this return the message and the exit code, which must be use later
 	// TODO: Do something with exit code and checker message
 	cvert, _, msg, err := js.checkerService.RunChecker(checkerAddr, inputAddr, outputAddr, answerAddr)
 	if err != nil {
-		return "", "", err
+		return "", vert.Message, err
 	}
 	return cvert, msg, nil
 }

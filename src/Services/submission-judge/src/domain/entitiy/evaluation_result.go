@@ -40,6 +40,7 @@ const (
 	PRESENTATION_ERROR    Verdict = "PRESENTATION_ERROR"
 	FAIL                  Verdict = "FAIL"
 	POINTS                Verdict = "POINTS"
+	PARTIAL_RESULT        Verdict = "PARTIAL_RESULT"
 	UNEXPECTED_EOF        Verdict = "UNEXPECTED_EOF"
 	DIRT                  Verdict = "DIRT"
 )
