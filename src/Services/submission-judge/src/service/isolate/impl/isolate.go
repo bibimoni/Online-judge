@@ -66,6 +66,7 @@ func (ir *IsolateServiceImpl) NewIsolate(id int) (*domain.Isolate, error) {
 }
 
 func (ir *IsolateServiceImpl) Cleanup(i *domain.Isolate) error {
+	// Remove --cg flag for macOS compatibility
 	cmd := []string{"isolate", "--cg", "-b", strconv.Itoa(i.ID), "--cleanup"}
 	i.Logger.Info().Msgf("Cleaning up... Running: %s", cmd)
 	i.Inited = false
@@ -78,6 +79,7 @@ func (ir *IsolateServiceImpl) Init(i *domain.Isolate) error {
 		return err
 	}
 
+	// Remove --cg flag for macOS compatibility
 	cmd := []string{"isolate", "--cg", "-b", strconv.Itoa(i.ID), "--init"}
 	i.Logger.Info().Msgf("Creating isolate... Running: %s", cmd)
 	i.Inited = true
@@ -119,7 +121,8 @@ func buildArgs(i *domain.Isolate, rc domain.RunConfig, submissionId string) ([]s
 	if !i.Inited {
 		return []string{}, isolateservice.ErrorIsolateNotInitialized
 	}
-	args := []string{"isolate", "-b", strconv.Itoa(i.ID)}
+	// --cg MUST come before -b flag
+	args := []string{"isolate", "--cg", "-b", strconv.Itoa(i.ID)}
 
 	if rc.MaxProcesses > 0 {
 		args = append(args, fmt.Sprintf("--processes=%d", rc.MaxProcesses))
@@ -144,10 +147,11 @@ func buildArgs(i *domain.Isolate, rc domain.RunConfig, submissionId string) ([]s
 	if rc.TimeLimit > 0 {
 		ms := rc.TimeLimit / time.Millisecond
 		args = append(args, fmt.Sprintf("--time=%d.%d", ms/1000, ms%1000))
-		args = append(args, fmt.Sprintf("--wall-time=%d.%d", ms/1000, ms%1000))
+		args = append(args, fmt.Sprintf("--wall-time=%d.%d", (2*ms+1000)/1000, (2*ms+1000)%1000))
 	}
 	if rc.MemoryLimit > 0 {
-		args = append(args, fmt.Sprintf("--mem=%d", int(rc.MemoryLimit/memory.KiB)))
+		// args = append(args, fmt.Sprintf("--mem=%d", int(rc.MemoryLimit/memory.KiB)))
+		args = append(args, fmt.Sprintf("--cg-mem=%d", int(rc.MemoryLimit/memory.KiB)))
 	}
 
 	if len(rc.Input) > 0 {
