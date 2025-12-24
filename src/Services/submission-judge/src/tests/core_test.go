@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -18,8 +19,8 @@ import (
 func TestEndToEndJudgingFlow(t *testing.T) {
 	// Configuration
 	const (
-		problemServiceURL = "http://localhost:3000"
-		gatewayURL        = "http://localhost:81"
+		problemServiceURL = "http://127.0.0.1:3000"
+		gatewayURL        = "http://127.0.0.1:81"
 		judgeWaitTime     = 60 * time.Second // Wait 1 minute for judging to complete
 	)
 
@@ -266,6 +267,7 @@ signed main() {
 			t.Fatalf("Mismatch: expected %d submissions but got %d IDs", len(testSubmissions), len(submissionIDs))
 		}
 
+		allPassed := true
 		for i, submissionID := range submissionIDs {
 			sub := testSubmissions[i]
 			t.Run(sub.Name, func(t *testing.T) {
@@ -280,6 +282,7 @@ signed main() {
 				t.Logf("  Problem: %s", sub.ProblemID)
 				t.Logf("  Verdict: %s", result.Verdict)
 				t.Logf("  Status: %s", result.Status)
+				t.Logf("  Message: %s", result.Message)
 				
 				if result.Time > 0 {
 					t.Logf("  Time: %.3fs", result.Time)
@@ -290,14 +293,63 @@ signed main() {
 
 				// Verify the submission was judged (not pending)
 				if result.Status == "PENDING" || result.Status == "JUDGING" {
-					t.Errorf("Submission is still %s after wait period", result.Status)
+					t.Errorf("❌ Submission is still %s after wait period", result.Status)
+					allPassed = false
+					return
 				}
 
-				t.Logf("✓ Submission %s verified successfully", submissionID)
+				// Check for system errors (like cgroup issues)
+				if result.Verdict == "COMPILATION_ERROR" && strings.Contains(result.Message, "cgroup") {
+					t.Errorf("❌ System error detected - cgroup issue: %s", result.Message)
+					t.Errorf("   This indicates the submission-judge container has cgroup configuration problems")
+					allPassed = false
+					return
+				}
+
+				// Verify verdict matches expected (if provided)
+				if sub.ExpectedVerdict != "" {
+					if result.Verdict != sub.ExpectedVerdict {
+						t.Errorf("❌ Verdict mismatch!")
+						t.Errorf("   Expected: %s", sub.ExpectedVerdict)
+						t.Errorf("   Got:      %s", result.Verdict)
+						if result.Message != "" {
+							t.Errorf("   Message:  %s", result.Message)
+						}
+						allPassed = false
+					} else {
+						t.Logf("✓ Verdict matches expected: %s", result.Verdict)
+					}
+				}
+
+				// Additional verification based on verdict
+				switch sub.ExpectedVerdict {
+				case "ACCEPTED":
+					if result.Points != result.TotalPoints {
+						t.Errorf("❌ AC submission should have full points, got %d/%d", result.Points, result.TotalPoints)
+						allPassed = false
+					}
+					if result.PassedTests != result.TotalTests {
+						t.Errorf("❌ AC submission should pass all tests, got %d/%d", result.PassedTests, result.TotalTests)
+						allPassed = false
+					}
+				case "MEMORY_LIMIT_EXCEEDED", "TIME_LIMIT_EXCEEDED":
+					if result.Points != 0 {
+						t.Errorf("❌ MLE/TLE submission should have 0 points, got %d", result.Points)
+						allPassed = false
+					}
+				}
+
+				if allPassed {
+					t.Logf("✓ Submission %s verified successfully", submissionID)
+				}
 			})
 		}
 
-		t.Logf("✓ All %d submissions verified", len(submissionIDs))
+		if allPassed {
+			t.Logf("✓ All %d submissions verified successfully", len(submissionIDs))
+		} else {
+			t.Errorf("❌ Some submissions failed verification")
+		}
 	})
 }
 
@@ -373,7 +425,7 @@ func authenticate(baseURL, username, password string) (string, error) {
 		return "", fmt.Errorf("failed to marshal login data: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/api/v1/auth/login", baseURL)
+	url := fmt.Sprintf("%s/auth/login", baseURL)
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return "", fmt.Errorf("request failed: %w", err)
@@ -382,7 +434,7 @@ func authenticate(baseURL, username, password string) (string, error) {
 
 	body, _ := io.ReadAll(resp.Body)
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return "", fmt.Errorf("authentication failed: status %d, body: %s", resp.StatusCode, string(body))
 	}
 
