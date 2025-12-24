@@ -179,14 +179,14 @@ jobs:
       - name: Start all services with Docker Compose
         run: |
           echo "Building and starting all services..."
-          docker-compose up -d --build
+          docker compose up -d --build
           echo "Services starting, initial wait..."
           sleep 15
       
       - name: Check running containers
         run: |
           echo "=== Container Status ==="
-          docker-compose ps
+          docker compose ps
           echo ""
           echo "=== Checking if all services are running ==="
           docker ps --filter "name=problem" --filter "name=auth" --filter "name=gateway" --filter "name=submission-judge"
@@ -195,7 +195,7 @@ jobs:
         run: |
           echo "Waiting for MongoDB (problem-db)..."
           for i in {1..90}; do
-            if docker-compose exec -T problemmongodb mongosh --eval "db.adminCommand('ping')" > /dev/null 2>&1; then
+            if docker compose exec -T problemmongodb mongosh --eval "db.adminCommand('ping')" > /dev/null 2>&1; then
               echo "✓ Problem MongoDB is ready"
               break
             fi
@@ -205,7 +205,7 @@ jobs:
           
           echo "Waiting for PostgreSQL (auth-db)..."
           for i in {1..90}; do
-            if docker-compose exec -T mypostgres pg_isready -U postgres > /dev/null 2>&1; then
+            if docker compose exec -T mypostgres pg_isready -U postgres > /dev/null 2>&1; then
               echo "✓ PostgreSQL is ready"
               break
             fi
@@ -215,7 +215,7 @@ jobs:
           
           echo "Waiting for MongoDB (submission-judge-db)..."
           for i in {1..90}; do
-            if docker-compose exec -T mongosubmissionjudgedb mongosh --eval "db.adminCommand('ping')" > /dev/null 2>&1; then
+            if docker compose exec -T mongosubmissionjudgedb mongosh --eval "db.adminCommand('ping')" > /dev/null 2>&1; then
               echo "✓ Submission-judge MongoDB is ready"
               break
             fi
@@ -225,7 +225,7 @@ jobs:
           
           echo "Waiting for Redis..."
           for i in {1..90}; do
-            if docker-compose exec -T redissubmissionjudge redis-cli -a root ping > /dev/null 2>&1; then
+            if docker compose exec -T redissubmissionjudge redis-cli -a root ping > /dev/null 2>&1; then
               echo "✓ Redis is ready"
               break
             fi
@@ -245,14 +245,14 @@ jobs:
             sleep 2
           done
           echo "Checking auth service logs..."
-          docker-compose logs --tail=20 auth
+          docker compose logs --tail=20 auth
       
       - name: Initialize auth service database
         run: |
           echo "Running Prisma migrations..."
-          docker-compose exec -T auth npx prisma migrate deploy
+          docker compose exec -T auth npx prisma migrate deploy
           echo "Seeding database with admin user..."
-          docker-compose exec -T auth npx prisma db seed || echo "Seed may already exist"
+          docker compose exec -T auth npx prisma db seed || echo "Seed may already exist"
           sleep 5
       
       - name: Wait for problem service to be ready
@@ -267,7 +267,7 @@ jobs:
             sleep 2
           done
           echo "Checking problem service logs..."
-          docker-compose logs --tail=20 problem
+          docker compose logs --tail=20 problem
       
       - name: Initialize test problems
         run: |
@@ -293,7 +293,7 @@ jobs:
             sleep 2
           done
           echo "Checking gateway service logs..."
-          docker-compose logs --tail=20 gateway
+          docker compose logs --tail=20 gateway
       
       - name: Wait for submission-judge service to be ready
         run: |
@@ -310,9 +310,9 @@ jobs:
           done
           sleep 5
           echo "Checking submission-judge service logs..."
-          docker-compose logs --tail=30 submission-judge
+          docker compose logs --tail=30 submission-judge
           echo "Verifying isolate is configured..."
-          docker-compose exec -T submission-judge isolate --version || echo "Warning: isolate check failed"
+          docker compose exec -T submission-judge isolate --version || echo "Warning: isolate check failed"
       
       - name: Run integration tests
         working-directory: src/Services/submission-judge
@@ -323,21 +323,21 @@ jobs:
         if: failure()
         run: |
           echo "=== Problem Service Logs ==="
-          docker-compose logs problem
+          docker compose logs problem
           echo "=== Auth Service Logs ==="
-          docker-compose logs auth
+          docker compose logs auth
           echo "=== Gateway Service Logs ==="
-          docker-compose logs gateway
+          docker compose logs gateway
           echo "=== Submission Judge Logs ==="
-          docker-compose logs submission-judge
+          docker compose logs submission-judge
           echo "=== Postgres Logs ==="
-          docker-compose logs mypostgres
+          docker compose logs mypostgres
           echo "=== MongoDB Problem Logs ==="
-          docker-compose logs problemmongodb
+          docker compose logs problemmongodb
       
       - name: Stop services
         if: always()
-        run: docker-compose down -v
+        run: docker compose down -v
 
   # Security scan
   security-scan:
