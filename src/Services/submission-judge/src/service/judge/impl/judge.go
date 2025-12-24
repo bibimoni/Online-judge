@@ -271,7 +271,7 @@ func (js *JudgeServiceImpl) RunCase(
 	curCpu *float64,
 	curMem *memory.Memory,
 ) (*judge.TestCaseResult, error) {
-	vert, outputAddr, ivert, err := js.executeTest(ctx, i, lang, req, problemInfo, tc)
+	vert, outputAddr, ivert, err := js.executeTest(i, lang, req, problemInfo, tc)
 	if err != nil {
 		js.OnFail(ctx, i, req.EvalId, *curCpu, *curMem, tc-1, JudgementFailedMessage)
 		return nil, err
@@ -279,14 +279,13 @@ func (js *JudgeServiceImpl) RunCase(
 
 	*curCpu = max(*curCpu, vert.Time)
 	*curMem = max(*curMem, vert.MaxRss)
-	i.Logger.Debug().Msgf("Test %d executed: time=%.2fms, memory=%s, status=%s", tc, vert.Time, vert.MaxRss, vert.Status)
+	i.Logger.Debug().Msgf("Test %d executed: time=%.2fms, memory=%d, status=%s", tc, vert.Time, vert.MaxRss, vert.Status)
 
 	result := js.evaluateTest(i, req, problemInfo, tc, vert, outputAddr, ivert)
 	return result, nil
 }
 
 func (js *JudgeServiceImpl) executeTest(
-	ctx context.Context,
 	i *domain.Isolate,
 	lang pkg.Language,
 	req *isolateservice.SubmissionRequest,
