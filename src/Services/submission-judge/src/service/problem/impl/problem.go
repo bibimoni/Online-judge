@@ -46,6 +46,10 @@ func (ps *ProblemServiceImpl) Get(ctx context.Context, id string) (*problem.Prob
 	if result == nil {
 		return nil, fmt.Errorf("There is an error occured fetch requesting from PROBLEM SERVER")
 	}
+	if result.ScoringMode == "" || len(result.TestGroups) == 0 {
+		result.ScoringMode = "ICPC"
+	}
+
 	return result, nil
 }
 

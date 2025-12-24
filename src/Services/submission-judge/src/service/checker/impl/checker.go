@@ -2,6 +2,7 @@ package checkerimpl
 
 import (
 	"errors"
+	"fmt"
 	"os/exec"
 	"strings"
 
@@ -57,12 +58,12 @@ func verifyChecker(checkerAddr, inputAddr, outputAddr, answerAddr string) error 
 
 	return nil
 }
-func (cs *CheckerServiceImpl) RunChecker(checkerAddr, inputAddr, outputAddr, answerAddr string) (domain.Verdict, int, string, error) {
+func (cs *CheckerServiceImpl) RunChecker(checkerAddr, inputAddr, outputAddr, answerAddr string) (domain.Verdict, int, string, float64, error) {
 	log := config.GetLogger()
 	log.Debug().Msgf("Run checker with these files: checker - %s, input - %s, output - %s, ans - %s", checkerAddr, inputAddr, outputAddr, answerAddr)
 	if err := verifyChecker(checkerAddr, inputAddr, outputAddr, answerAddr); err != nil {
 		log.Debug().Msgf("Error when run checker: %v", err)
-		return "", -1, "", err
+		return "", -1, "", 0.0, err
 	}
 
 	cmd := []string{checkerAddr, inputAddr, outputAddr, answerAddr}
@@ -70,16 +71,27 @@ func (cs *CheckerServiceImpl) RunChecker(checkerAddr, inputAddr, outputAddr, ans
 	msg := strings.TrimSpace(string(combined))
 	log.Debug().Msgf("Message: %s, exit code: %v", msg, err)
 
+	var score float64 = 0.0
+
 	if err == nil {
-		return MapExitCodeToVerdict(0), 0, msg, nil
+		return MapExitCodeToVerdict(0), 0, msg, 100.0, nil
 	}
 
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) {
 		code := exitErr.ExitCode()
-		return MapExitCodeToVerdict(code), code, msg, nil
+		verdict := MapExitCodeToVerdict(code)
+
+		if code == 5 || code == 7 {
+			fmt.Sscanf(msg, "%f", &score)
+		} else if code >= 16 && code <= 116 {
+			score = float64(code - 16)
+		} else if verdict == domain.ACCEPTED {
+			score = 100.0
+		}
+		return verdict, code, msg, score, nil
 	}
-	return "", -1, "", err
+	return "", -1, "", 0.0, err
 }
 
 func MapExitCodeToVerdict(code int) domain.Verdict {
