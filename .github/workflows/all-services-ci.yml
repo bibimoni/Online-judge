@@ -124,6 +124,31 @@ jobs:
         with:
           go-version: '1.22'
       
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+      
+      - name: Cache Database Volumes
+        uses: actions/cache@v4
+        with:
+          path: |
+            ./postgres-data
+            ./problem-db-data
+            ./submission-judge-db-data
+            ./contest-db-data
+            ./redis-submission-judge
+            ./scoreboard_redis
+          key: ${{ runner.os }}-db-volumes-${{ hashFiles('src/Services/auth-v2/prisma/schema.prisma', 'src/Services/auth-v2/prisma/migrations/**') }}
+          restore-keys: |
+            ${{ runner.os }}-db-volumes-
+      
       - name: Create .env file
         run: |
           cat > .env << 'EOF'
@@ -176,10 +201,15 @@ jobs:
           mkdir -p storage/445985
           mkdir -p storage/440176
       
+      - name: Set up Docker Compose cache environment
+        run: |
+          echo "COMPOSE_DOCKER_CLI_BUILD=1" >> $GITHUB_ENV
+          echo "DOCKER_BUILDKIT=1" >> $GITHUB_ENV
+      
       - name: Start all services with Docker Compose
         run: |
           echo "Building and starting all services..."
-          docker compose up -d --build
+          DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker compose up -d --build
           echo "Services starting, initial wait..."
           sleep 15
       
@@ -236,21 +266,28 @@ jobs:
       - name: Wait for auth service to be ready
         run: |
           echo "Waiting for auth service to be ready..."
+          echo "Note: Auth service runs 'prisma db push' on startup, so it may take time..."
           for i in {1..90}; do
-            if curl -f http://localhost:50051/auth/health 2>/dev/null | grep -q "ok"; then
-              echo "✓ Auth service is ready"
-              break
+            # Check if container is actually running (not restarting)
+            CONTAINER_STATUS=$(docker compose ps auth --format json | jq -r '.[0].State' 2>/dev/null || echo "unknown")
+            if [ "$CONTAINER_STATUS" = "running" ]; then
+              # Container is running, now check if the service responds
+              if curl -f http://localhost:50051/auth/health 2>/dev/null | grep -q "ok"; then
+                echo "✓ Auth service is ready"
+                break
+              fi
             fi
-            echo "Waiting for auth service... ($i/90)"
+            echo "Waiting for auth service... ($i/90) [Container: $CONTAINER_STATUS]"
             sleep 2
           done
           echo "Checking auth service logs..."
-          docker compose logs --tail=20 auth
+          docker compose logs --tail=30 auth
       
       - name: Initialize auth service database
         run: |
-          echo "Running Prisma migrations..."
-          docker compose exec -T auth npx prisma migrate deploy
+          echo "Auth service already ran 'prisma db push' on startup"
+          echo "Checking if migrations are needed..."
+          docker compose exec -T auth npx prisma migrate deploy || echo "Migrations may not be needed"
           echo "Seeding database with admin user..."
           docker compose exec -T auth npx prisma db seed || echo "Seed may already exist"
           sleep 5
