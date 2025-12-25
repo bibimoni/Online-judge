@@ -145,11 +145,10 @@ func buildArgs(i *domain.Isolate, rc domain.RunConfig, submissionId string) ([]s
 	if rc.TimeLimit > 0 {
 		ms := rc.TimeLimit / time.Millisecond
 		args = append(args, fmt.Sprintf("--time=%d.%d", ms/1000, ms%1000))
-		args = append(args, fmt.Sprintf("--wall-time=%d.%d", (2*ms+1000)/1000, (2*ms+1000)%1000))
+		args = append(args, fmt.Sprintf("--wall-time=%d.%d", (5*ms+2000)/1000, (5*ms+2000)%1000))
 	}
 
 	if rc.MemoryLimit > 0 {
-		// args = append(args, fmt.Sprintf("--mem=%d", int(rc.MemoryLimit/memory.KiB)))
 		args = append(args, fmt.Sprintf("--cg-mem=%d", int(rc.MemoryLimit/memory.KiB)))
 	}
 
@@ -161,6 +160,11 @@ func buildArgs(i *domain.Isolate, rc domain.RunConfig, submissionId string) ([]s
 	if len(rc.Output) > 0 {
 		args = append(args, "-o")
 		args = append(args, rc.Output)
+	}
+
+	// Redirect stderr to /dev/null
+	if rc.Stderr == nil {
+		args = append(args, "-r", "/dev/null")
 	}
 
 	if rc.Meta {

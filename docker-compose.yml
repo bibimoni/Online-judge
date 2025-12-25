@@ -15,9 +15,12 @@ services:
     volumes:
       - ./src/Services/submission-judge:/app
       - ./storage:/problems_dir:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
     networks:
       - online-judge-network
     privileged: true
+    security_opt:
+      - apparmor=unconfined
   mongosubmissionjudgedb: 
     container_name: submission-judge-db
     image: mongo

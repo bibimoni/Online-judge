@@ -56,6 +56,13 @@ RUN setcap cap_sys_admin=eip /usr/local/bin/isolate && \
 # Run systemd-tmpfiles on startup to create /run directories
 RUN echo '#!/bin/bash' > /entrypoint.sh && \
     echo 'systemd-tmpfiles --create /usr/lib/tmpfiles.d/isolate.conf 2>/dev/null || true' >> /entrypoint.sh && \
+    echo '# Try to enable cgroup controllers for isolate (may fail on macOS Docker Desktop)' >> /entrypoint.sh && \
+    echo 'echo "+memory +cpu +pids +cpuset" > /sys/fs/cgroup/cgroup.subtree_control 2>/dev/null || true' >> /entrypoint.sh && \
+    echo '# Verify if controllers are available' >> /entrypoint.sh && \
+    echo 'if [ ! -f /sys/fs/cgroup/box-0/memory.max ] && [ -d /sys/fs/cgroup/box-0 ]; then' >> /entrypoint.sh && \
+    echo '  echo "WARNING: cgroup memory controller not available. Memory limits may not work."' >> /entrypoint.sh && \
+    echo '  echo "This is expected on macOS Docker Desktop."' >> /entrypoint.sh && \
+    echo 'fi' >> /entrypoint.sh && \
     echo 'exec "$@"' >> /entrypoint.sh && \
     chmod +x /entrypoint.sh
 
