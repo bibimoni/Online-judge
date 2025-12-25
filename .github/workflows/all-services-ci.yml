@@ -178,21 +178,26 @@ jobs:
         id: docker-cache
         uses: actions/cache@v4
         with:
-          path: /tmp/docker-images
-          key: ${{ runner.os }}-docker-images-${{ hashFiles('src/Services/**/Dockerfile', 'src/Services/**/go.sum', 'src/Services/**/package-lock.json') }}
+          path: /tmp/docker-save
+          key: ${{ runner.os }}-docker-${{ hashFiles('src/Services/**/Dockerfile', 'src/Services/**/go.mod', 'src/Services/**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-docker-images-
+            ${{ runner.os }}-docker-
       
       - name: Load cached Docker images
         if: steps.docker-cache.outputs.cache-hit == 'true'
         run: |
-          echo "Loading cached Docker images..."
-          if [ -f /tmp/docker-images/images.tar ]; then
-            docker load -i /tmp/docker-images/images.tar
+          echo "✓ Cache hit! Loading Docker images..."
+          if [ -d /tmp/docker-save ] && [ "$(ls -A /tmp/docker-save)" ]; then
+            for img in /tmp/docker-save/*.tar; do
+              if [ -f "$img" ]; then
+                echo "Loading $img..."
+                docker load -i "$img"
+              fi
+            done
             echo "✓ Docker images loaded from cache"
             docker images
           else
-            echo "No cached images tar file found"
+            echo "Cache directory empty"
           fi
       
       - name: Create .env file
@@ -259,11 +264,12 @@ jobs:
           echo "Starting application services (databases already running via GitHub Actions services)..."
           # Use --scale to set database replicas to 0, effectively skipping them
           # This prevents port conflicts with GitHub Actions services
+          # Note: Using actual service names from docker-compose.yml
           docker compose up -d \
-            --scale postgres=0 \
-            --scale problem-mongodb=0 \
-            --scale submission-mongodb=0 \
-            --scale redis=0 \
+            --scale mypostgres=0 \
+            --scale problemmongodb=0 \
+            --scale mongosubmissionjudgedb=0 \
+            --scale redissubmissionjudge=0 \
             auth gateway problem submission-judge
           echo "Services starting, initial wait..."
           sleep 15
@@ -369,28 +375,24 @@ jobs:
         if: always()
         run: |
           echo "Saving Docker images for caching..."
-          mkdir -p /tmp/docker-images
+          mkdir -p /tmp/docker-save
           
-          # Get list of images we built (exclude base images and <none>)
-          IMAGES=$(docker images --filter "reference=online-judge-*" --format "{{.Repository}}:{{.Tag}}" | grep -v "<none>" || true)
-          
-          if [ -n "$IMAGES" ]; then
-            echo "Images to cache:"
-            echo "$IMAGES"
-            docker save $IMAGES -o /tmp/docker-images/images.tar
-            echo "✓ Saved $(ls -lh /tmp/docker-images/images.tar | awk '{print $5}')"
-          else
-            echo "No images to cache (using docker compose project name)"
-            # Try with docker compose images
-            COMPOSE_IMAGES=$(docker compose images -q | xargs docker inspect --format='{{.RepoTags}}' | grep -v "\[\]" | tr -d '[]' | tr ' ' '\n' | grep -v "^$" || true)
-            if [ -n "$COMPOSE_IMAGES" ]; then
-              echo "Compose images to cache:"
-              echo "$COMPOSE_IMAGES"
-              echo "$COMPOSE_IMAGES" | xargs docker save -o /tmp/docker-images/images.tar
-              echo "✓ Saved $(ls -lh /tmp/docker-images/images.tar | awk '{print $5}')"
-            else
-              echo "⚠ No images found to cache"
+          # Save images built by docker-compose with proper names
+          echo "Finding images to cache..."
+          docker compose config --images | while read img; do
+            if [ -n "$img" ] && [ "$img" != "postgres:15" ] && [ "$img" != "mongo:latest" ] && [ "$img" != "redis:latest" ]; then
+              echo "Saving image: $img"
+              SAFE_NAME=$(echo "$img" | sed 's/:/-/g' | sed 's/\//-/g')
+              docker save "$img" -o "/tmp/docker-save/${SAFE_NAME}.tar" || echo "Failed to save $img"
             fi
+          done
+          
+          # List what we saved
+          if [ -d /tmp/docker-save ] && [ "$(ls -A /tmp/docker-save)" ]; then
+            echo "✓ Saved images:"
+            ls -lh /tmp/docker-save/
+          else
+            echo "⚠ No images saved to cache"
           fi
       
       - name: Show service logs on failure
