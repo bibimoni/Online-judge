@@ -262,9 +262,9 @@ jobs:
       - name: Start application services
         run: |
           echo "Starting application services (databases already running via GitHub Actions services)..."
-          # Start only application services by explicitly listing them
-          # This avoids port conflicts with GitHub Actions database services
-          docker compose up -d auth gateway problem submission-judge
+          # Use --no-deps to prevent Docker Compose from starting database dependencies
+          # This is needed because services have depends_on clauses pointing to databases
+          docker compose up -d --no-deps auth gateway problem submission-judge
           echo "Services starting, initial wait..."
           sleep 15
       
