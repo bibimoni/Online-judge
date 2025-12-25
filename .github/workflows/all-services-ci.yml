@@ -154,7 +154,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
         ports:
-          - 37017:27017
+          - 27018:27017
       
       redis:
         image: redis:latest
@@ -199,7 +199,7 @@ jobs:
         run: |
           cat > .env << 'EOF'
           SUBMISSION_ENV=development
-          SUBMISSION_MONGODB_URI=mongodb://localhost:37017/submissionjudgedb
+          SUBMISSION_MONGODB_URI=mongodb://localhost:27018/submissionjudgedb
           SUBMISSION_HOST=0.0.0.0
           SUBMISSION_LOG_LEVEL=debug
           SUBMISSION_MONGODB_DATABASE_NAME=submissionjudgedb
@@ -257,8 +257,14 @@ jobs:
       - name: Start application services
         run: |
           echo "Starting application services (databases already running via GitHub Actions services)..."
-          # Start only application containers, skip database containers
-          docker compose up -d auth gateway problem submission-judge
+          # Use --scale to set database replicas to 0, effectively skipping them
+          # This prevents port conflicts with GitHub Actions services
+          docker compose up -d \
+            --scale postgres=0 \
+            --scale problem-mongodb=0 \
+            --scale submission-mongodb=0 \
+            --scale redis=0 \
+            auth gateway problem submission-judge
           echo "Services starting, initial wait..."
           sleep 15
       
@@ -269,6 +275,16 @@ jobs:
           echo ""
           echo "=== All Docker Containers ==="
           docker ps -a
+          echo ""
+          echo "=== Verify databases are accessible from host ==="
+          echo "Postgres:"
+          pg_isready -h localhost -p 5432 -U postgres || echo "Postgres not ready"
+          echo "MongoDB (Problem):"
+          mongosh --host localhost --port 27017 --eval "db.adminCommand('ping')" || echo "Problem MongoDB not ready"
+          echo "MongoDB (Submission):"
+          mongosh --host localhost --port 27018 --eval "db.adminCommand('ping')" || echo "Submission MongoDB not ready"
+          echo "Redis:"
+          redis-cli -h localhost -p 6379 ping || echo "Redis not ready"
       
       - name: Wait for auth service to be ready
         run: |
