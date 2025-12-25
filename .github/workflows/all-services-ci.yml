@@ -262,15 +262,9 @@ jobs:
       - name: Start application services
         run: |
           echo "Starting application services (databases already running via GitHub Actions services)..."
-          # Use --scale to set database replicas to 0, effectively skipping them
-          # This prevents port conflicts with GitHub Actions services
-          # Note: Using actual service names from docker-compose.yml
-          docker compose up -d \
-            --scale mypostgres=0 \
-            --scale problemmongodb=0 \
-            --scale mongosubmissionjudgedb=0 \
-            --scale redissubmissionjudge=0 \
-            auth gateway problem submission-judge
+          # Start only application services by explicitly listing them
+          # This avoids port conflicts with GitHub Actions database services
+          docker compose up -d auth gateway problem submission-judge
           echo "Services starting, initial wait..."
           sleep 15
       
@@ -377,20 +371,51 @@ jobs:
           echo "Saving Docker images for caching..."
           mkdir -p /tmp/docker-save
           
-          # Save images built by docker-compose with proper names
-          echo "Finding images to cache..."
-          docker compose config --images | while read img; do
-            if [ -n "$img" ] && [ "$img" != "postgres:15" ] && [ "$img" != "mongo:latest" ] && [ "$img" != "redis:latest" ]; then
+          # Only cache the images we actually built (not base images)
+          # Get unique list of built images
+          BUILT_IMAGES=$(docker compose config --services | while read service; do
+            # Get the image name for each service
+            IMAGE=$(docker compose config | grep -A5 "^  $service:" | grep "image:" | head -1 | awk '{print $2}' || echo "")
+            
+            # If no image specified, it's built by docker compose
+            if [ -z "$IMAGE" ]; then
+              # Constructed image name pattern: projectname-servicename
+              echo "online-judge-$service"
+            fi
+          done | sort -u)
+          
+          echo "Images to cache:"
+          echo "$BUILT_IMAGES"
+          
+          # Save each built image
+          for img in $BUILT_IMAGES; do
+            # Check if image actually exists
+            if docker image inspect "$img" >/dev/null 2>&1; then
               echo "Saving image: $img"
               SAFE_NAME=$(echo "$img" | sed 's/:/-/g' | sed 's/\//-/g')
-              docker save "$img" -o "/tmp/docker-save/${SAFE_NAME}.tar" || echo "Failed to save $img"
+              
+              # Check available disk space before saving
+              AVAILABLE=$(df /tmp | tail -1 | awk '{print $4}')
+              IMAGE_SIZE=$(docker image inspect "$img" --format='{{.Size}}' | awk '{print int($1/1024)}')
+              
+              if [ "$AVAILABLE" -gt "$((IMAGE_SIZE + 1048576))" ]; then
+                docker save "$img" -o "/tmp/docker-save/${SAFE_NAME}.tar" && \
+                  echo "✓ Saved $img ($(ls -lh /tmp/docker-save/${SAFE_NAME}.tar | awk '{print $5}'))" || \
+                  echo "✗ Failed to save $img"
+              else
+                echo "⚠ Skipping $img - insufficient disk space (need ${IMAGE_SIZE}KB, have ${AVAILABLE}KB)"
+              fi
+            else
+              echo "⚠ Image $img does not exist, skipping"
             fi
           done
           
           # List what we saved
           if [ -d /tmp/docker-save ] && [ "$(ls -A /tmp/docker-save)" ]; then
-            echo "✓ Saved images:"
+            echo ""
+            echo "✓ Cached images summary:"
             ls -lh /tmp/docker-save/
+            echo "Total size: $(du -sh /tmp/docker-save | awk '{print $1}')"
           else
             echo "⚠ No images saved to cache"
           fi
