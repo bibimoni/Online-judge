@@ -179,8 +179,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/docker-save
-          key: ${{ runner.os }}-docker-${{ hashFiles('src/Services/**/Dockerfile', 'src/Services/**/go.mod', 'src/Services/**/package-lock.json') }}
+          # Use branch-based caching with weekly rotation to balance freshness and hit rate
+          key: ${{ runner.os }}-docker-${{ github.ref_name }}-${{ hashFiles('src/Services/**/Dockerfile') }}-${{ hashFiles('src/Services/**/go.sum', 'src/Services/**/package-lock.json') }}
           restore-keys: |
+            ${{ runner.os }}-docker-${{ github.ref_name }}-${{ hashFiles('src/Services/**/Dockerfile') }}-
+            ${{ runner.os }}-docker-${{ github.ref_name }}-
+            ${{ runner.os }}-docker-main-
             ${{ runner.os }}-docker-
       
       - name: Load cached Docker images
@@ -204,12 +208,12 @@ jobs:
         run: |
           cat > .env << 'EOF'
           SUBMISSION_ENV=development
-          SUBMISSION_MONGODB_URI=mongodb://localhost:27018/submissionjudgedb
+          SUBMISSION_MONGODB_URI=mongodb://host.docker.internal:27018/submissionjudgedb
           SUBMISSION_HOST=0.0.0.0
           SUBMISSION_LOG_LEVEL=debug
           SUBMISSION_MONGODB_DATABASE_NAME=submissionjudgedb
           SUBMISSION_JUDGE_PROBLEM_DIR=/problems_dir
-          SUBMISSION_REDIS_URI=localhost:6379
+          SUBMISSION_REDIS_URI=host.docker.internal:6379
           SUBMISSION_REDIS_PASSWORD=
           SUBMISSION_NUMBER_OF_JUDGE=5
           SUBMISSION_JUDGE_ID_OFFSET=0
@@ -222,7 +226,7 @@ jobs:
           GATEWAY_LOG_LEVEL=debug
           GATEWAY_ENVIRONMENT=Development
           
-          PROBLEM_MONGO_URI=mongodb://localhost:27017/problem-db
+          PROBLEM_MONGO_URI=mongodb://host.docker.internal:27017/problem-db
           POLYGON_API_KEY=${{ secrets.POLYGON_API_KEY }}
           POLYGON_API_SECRET=${{ secrets.POLYGON_API_SECRET }}
           PROBLEM_STORAGE_DIR=/storage
@@ -233,13 +237,13 @@ jobs:
           
           AUTH_PORT=50051
           AUTH_ENDPOINT=http://auth:50051
-          AUTH_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/auth_db?schema=public
+          AUTH_DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:5432/auth_db?schema=public
           NODE_ENV=development
           AUTH_JWT_SECRET=your-secret-key-here
           
-          CONTEST_MONGO_URI=mongodb://localhost:27017/contestdb
+          CONTEST_MONGO_URI=mongodb://host.docker.internal:27017/contestdb
           CONTEST_MONGO_DATABASE_NAME=contestdb
-          CONTEST_REDIS_HOST=localhost
+          CONTEST_REDIS_HOST=host.docker.internal
           CONTEST_REDIS_PORT=6379
           CONTEST_ENV=Development
           CONETST_LOG_LEVEL=debug
