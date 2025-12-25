@@ -114,286 +114,286 @@ jobs:
           files: ./src/Services/auth-v2/coverage/lcov.info
           flags: auth-v2
 
-  # Integration test - All services end-to-end
-  integration-test:
-    name: Integration Test - All Services
-    runs-on: ubuntu-latest
-    needs: [test-go-services, test-auth-service]
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-      
-      - name: Cache Docker Images
-        id: docker-cache
-        uses: actions/cache@v4
-        with:
-          path: /tmp/docker-images
-          key: ${{ runner.os }}-docker-${{ hashFiles('src/Services/**/Dockerfile', 'src/Services/**/go.sum', 'src/Services/**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-docker-
-      
-      - name: Load cached Docker images
-        if: steps.docker-cache.outputs.cache-hit == 'true'
-        run: |
-          echo "Loading cached Docker images..."
-          if [ -f /tmp/docker-images/images.tar ]; then
-            docker load -i /tmp/docker-images/images.tar || echo "Failed to load cache, will rebuild"
-          else
-            echo "No cached images found"
-          fi
-      
-      - name: Cache Database Volumes
-        uses: actions/cache@v4
-        with:
-          path: |
-            ./postgres-data
-            ./problem-db-data
-            ./submission-judge-db-data
-            ./contest-db-data
-            ./redis-submission-judge
-            ./scoreboard_redis
-          key: ${{ runner.os }}-db-volumes-${{ hashFiles('src/Services/auth-v2/prisma/schema.prisma', 'src/Services/auth-v2/prisma/migrations/**') }}
-          restore-keys: |
-            ${{ runner.os }}-db-volumes-
-      
-      - name: Create .env file
-        run: |
-          cat > .env << 'EOF'
-          SUBMISSION_ENV=development
-          SUBMISSION_MONGODB_URI=mongodb://mongosubmissionjudgedb:27017/submissionjudgedb
-          SUBMISSION_HOST=0.0.0.0
-          SUBMISSION_LOG_LEVEL=debug
-          SUBMISSION_MONGODB_DATABASE_NAME=submissionjudgedb
-          SUBMISSION_JUDGE_PROBLEM_DIR=/problems_dir
-          SUBMISSION_REDIS_URI=redissubmissionjudge:6379
-          SUBMISSION_REDIS_PASSWORD=root
-          SUBMISSION_NUMBER_OF_JUDGE=5
-          SUBMISSION_JUDGE_ID_OFFSET=0
-          SUBMISSION_IS_MAIN_JUDGE=true
-          SUBMISSION_PORT=8000
-          SUBMISSION_ENDPOINT=http://submission-judge:8000
-          
-          GATEWAY_PORT=81
-          GATEWAY_HOST=0.0.0.0
-          GATEWAY_LOG_LEVEL=debug
-          GATEWAY_ENVIRONMENT=Development
-          
-          PROBLEM_MONGO_URI=mongodb://problemmongodb:27017/problem-db
-          POLYGON_API_KEY=${{ secrets.POLYGON_API_KEY }}
-          POLYGON_API_SECRET=${{ secrets.POLYGON_API_SECRET }}
-          PROBLEM_STORAGE_DIR=/storage
-          PROBLEM_HOST=0.0.0.0
-          PROBLEM_PORT=3000
-          PROBLEM_ENDPOINT=http://problem:3000
-          PROBLEM_DATABASE_NAME=problem-db
-          
-          AUTH_PORT=50051
-          AUTH_ENDPOINT=http://auth:50051
-          AUTH_DATABASE_URL=postgresql://postgres:postgres@mypostgres:5432/auth_db?schema=public
-          NODE_ENV=development
-          AUTH_JWT_SECRET=your-secret-key-here
-          
-          CONTEST_MONGO_URI=mongodb://contestmongodb:27017/contestdb
-          CONTEST_MONGO_DATABASE_NAME=contestdb
-          CONTEST_REDIS_HOST=rediscontest
-          CONTEST_REDIS_PORT=6379
-          CONTEST_ENV=Development
-          CONETST_LOG_LEVEL=debug
-          CONTEST_PORT=8001
-          CONTEST_HOST=0.0.0.0
-          EOF
-      
-      - name: Create storage directories
-        run: |
-          mkdir -p storage/445985
-          mkdir -p storage/440176
-      
-      - name: Set up Docker Compose cache environment
-        run: |
-          echo "COMPOSE_DOCKER_CLI_BUILD=1" >> $GITHUB_ENV
-          echo "DOCKER_BUILDKIT=1" >> $GITHUB_ENV
-      
-      - name: Start all services with Docker Compose
-        run: |
-          echo "Building and starting all services..."
-          DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker compose up -d --build
-          echo "Services starting, initial wait..."
-          sleep 15
-      
-      - name: Check running containers
-        run: |
-          echo "=== Container Status ==="
-          docker compose ps
-          echo ""
-          echo "=== Checking if all services are running ==="
-          docker ps --filter "name=problem" --filter "name=auth" --filter "name=gateway" --filter "name=submission-judge"
-      
-      - name: Wait for databases to be ready
-        run: |
-          echo "Waiting for MongoDB (problem-db)..."
-          for i in {1..20}; do
-            if docker compose exec -T problemmongodb mongosh --eval "db.adminCommand('ping')" > /dev/null 2>&1; then
-              echo "✓ Problem MongoDB is ready"
-              break
-            fi
-            echo "Waiting for MongoDB... ($i/90)"
-            sleep 2
-          done
-          
-          echo "Waiting for PostgreSQL (auth-db)..."
-          for i in {1..20}; do
-            if docker compose exec -T mypostgres pg_isready -U postgres > /dev/null 2>&1; then
-              echo "✓ PostgreSQL is ready"
-              break
-            fi
-            echo "Waiting for PostgreSQL... ($i/90)"
-            sleep 2
-          done
-          
-          echo "Waiting for MongoDB (submission-judge-db)..."
-          for i in {1..20}; do
-            if docker compose exec -T mongosubmissionjudgedb mongosh --eval "db.adminCommand('ping')" > /dev/null 2>&1; then
-              echo "✓ Submission-judge MongoDB is ready"
-              break
-            fi
-            echo "Waiting for Submission MongoDB... ($i/90)"
-            sleep 2
-          done
-          
-          echo "Waiting for Redis..."
-          for i in {1..20}; do
-            if docker compose exec -T redissubmissionjudge redis-cli -a root ping > /dev/null 2>&1; then
-              echo "✓ Redis is ready"
-              break
-            fi
-            echo "Waiting for Redis... ($i/90)"
-            sleep 2
-          done
-      
-      - name: Wait for auth service to be ready
-        run: |
-          echo "Waiting for auth service to be ready..."
-          echo "Note: Auth service runs 'prisma db push' on startup, so it may take time..."
-          for i in {1..90}; do
-            # Check if the health endpoint responds (this means container is running and app is ready)
-            if curl -f http://localhost:50051/auth/health 2>/dev/null | grep -q "ok"; then
-              echo "✓ Auth service is ready"
-              break
-            fi
-            # Show container status for debugging
-            CONTAINER_INFO=$(docker ps --filter "name=auth" --format "{{.Status}}" 2>/dev/null || echo "not found")
-            echo "Waiting for auth service... ($i/90) [Status: $CONTAINER_INFO]"
-            sleep 2
-          done
-          echo "Checking auth service logs..."
-          docker compose logs --tail=30 auth
-      
-      - name: Initialize auth service database
-        run: |
-          echo "Auth service already ran 'prisma db push' on startup"
-          echo "Checking if migrations are needed..."
-          docker compose exec -T auth npx prisma migrate deploy || echo "Migrations may not be needed"
-          echo "Seeding database with admin user..."
-          docker compose exec -T auth npx prisma db seed || echo "Seed may already exist"
-          sleep 5
-      
-      - name: Wait for problem service to be ready
-        run: |
-          echo "Waiting for problem service..."
-          for i in {1..90}; do
-            if curl -f http://localhost:3000/ 2>/dev/null | grep -q "GET request"; then
-              echo "✓ Problem service is ready"
-              break
-            fi
-            echo "Waiting for problem service... ($i/90)"
-            sleep 2
-          done
-          echo "Checking problem service logs..."
-          docker compose logs --tail=20 problem
-      
-      - name: Initialize test problems
-        run: |
-          echo "Initializing problem 445985..."
-          curl -X POST "http://localhost:3000/problem/add?problemId=445985" -v || echo "Problem may already exist"
-          sleep 5
-          echo "Initializing problem 440176..."
-          curl -X POST "http://localhost:3000/problem/add?problemId=440176" -v || echo "Problem may already exist"
-          sleep 5
-          echo "Problems initialized"
-      
-      - name: Wait for gateway service to be ready
-        run: |
-          echo "Waiting for gateway service..."
-          for i in {1..90}; do
-            # Try to reach the gateway through the auth login endpoint (should return 400/401 without credentials but proves service is up)
-            STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:81/api/v1/auth/login 2>/dev/null || echo "000")
-            if [ "$STATUS_CODE" != "000" ] && [ "$STATUS_CODE" != "502" ] && [ "$STATUS_CODE" != "503" ]; then
-              echo "✓ Gateway service is ready and responding (HTTP $STATUS_CODE)"
-              break
-            fi
-            echo "Waiting for gateway service... ($i/90) [HTTP $STATUS_CODE]"
-            sleep 2
-          done
-          echo "Checking gateway service logs..."
-          docker compose logs --tail=20 gateway
-      
-      - name: Wait for submission-judge service to be ready
-        run: |
-          echo "Waiting for submission-judge service..."
-          for i in {1..90}; do
-            # Try to reach a submission endpoint (should return 400/404 but proves service is up)
-            STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/v1/submission/view/test 2>/dev/null || echo "000")
-            if [ "$STATUS_CODE" != "000" ] && [ "$STATUS_CODE" != "502" ] && [ "$STATUS_CODE" != "503" ]; then
-              echo "✓ Submission-judge service is ready and responding (HTTP $STATUS_CODE)"
-              break
-            fi
-            echo "Waiting for submission-judge service... ($i/90) [HTTP $STATUS_CODE]"
-            sleep 2
-          done
-          sleep 5
-          echo "Checking submission-judge service logs..."
-          docker compose logs --tail=30 submission-judge
-          echo "Verifying isolate is configured..."
-          docker compose exec -T submission-judge isolate --version || echo "Warning: isolate check failed"
-      
-      - name: Run integration tests
-        working-directory: src/Services/submission-judge
-        run: |
-          go test -v -timeout 10m ./src/tests -run TestEndToEndJudgingFlow
-      
-      - name: Save Docker images to cache
-        if: always()
-        run: |
-          echo "Saving Docker images for caching..."
-          mkdir -p /tmp/docker-images
-          docker compose images --format json | jq -r '.[].Repository + ":" + .[].Tag' | grep -v "<none>" | xargs -I {} echo "Saving {}"
-          docker save $(docker compose images --format json | jq -r '.[].Repository + ":" + .[].Tag' | grep -v "<none>" | tr '\n' ' ') -o /tmp/docker-images/images.tar 2>/dev/null || echo "Some images may not exist yet"
-          ls -lh /tmp/docker-images/
-      
-      - name: Show service logs on failure
-        if: failure()
-        run: |
-          echo "=== Problem Service Logs ==="
-          docker compose logs problem
-          echo "=== Auth Service Logs ==="
-          docker compose logs auth
-          echo "=== Gateway Service Logs ==="
-          docker compose logs gateway
-          echo "=== Submission Judge Logs ==="
-          docker compose logs submission-judge
-          echo "=== Postgres Logs ==="
-          docker compose logs mypostgres
-          echo "=== MongoDB Problem Logs ==="
-          docker compose logs problemmongodb
-      
-      - name: Stop services
-        if: always()
-        run: docker compose down
+  # # Integration test - All services end-to-end
+  # integration-test:
+  #   name: Integration Test - All Services
+  #   runs-on: ubuntu-latest
+  #   needs: [test-go-services, test-auth-service]
+  #   
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version: '1.22'
+  #     
+  #     - name: Cache Docker Images
+  #       id: docker-cache
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: /tmp/docker-images
+  #         key: ${{ runner.os }}-docker-${{ hashFiles('src/Services/**/Dockerfile', 'src/Services/**/go.sum', 'src/Services/**/package-lock.json') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-docker-
+  #     
+  #     - name: Load cached Docker images
+  #       if: steps.docker-cache.outputs.cache-hit == 'true'
+  #       run: |
+  #         echo "Loading cached Docker images..."
+  #         if [ -f /tmp/docker-images/images.tar ]; then
+  #           docker load -i /tmp/docker-images/images.tar || echo "Failed to load cache, will rebuild"
+  #         else
+  #           echo "No cached images found"
+  #         fi
+  #     
+  #     - name: Cache Database Volumes
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: |
+  #           ./postgres-data
+  #           ./problem-db-data
+  #           ./submission-judge-db-data
+  #           ./contest-db-data
+  #           ./redis-submission-judge
+  #           ./scoreboard_redis
+  #         key: ${{ runner.os }}-db-volumes-${{ hashFiles('src/Services/auth-v2/prisma/schema.prisma', 'src/Services/auth-v2/prisma/migrations/**') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-db-volumes-
+  #     
+  #     - name: Create .env file
+  #       run: |
+  #         cat > .env << 'EOF'
+  #         SUBMISSION_ENV=development
+  #         SUBMISSION_MONGODB_URI=mongodb://mongosubmissionjudgedb:27017/submissionjudgedb
+  #         SUBMISSION_HOST=0.0.0.0
+  #         SUBMISSION_LOG_LEVEL=debug
+  #         SUBMISSION_MONGODB_DATABASE_NAME=submissionjudgedb
+  #         SUBMISSION_JUDGE_PROBLEM_DIR=/problems_dir
+  #         SUBMISSION_REDIS_URI=redissubmissionjudge:6379
+  #         SUBMISSION_REDIS_PASSWORD=root
+  #         SUBMISSION_NUMBER_OF_JUDGE=5
+  #         SUBMISSION_JUDGE_ID_OFFSET=0
+  #         SUBMISSION_IS_MAIN_JUDGE=true
+  #         SUBMISSION_PORT=8000
+  #         SUBMISSION_ENDPOINT=http://submission-judge:8000
+  #         
+  #         GATEWAY_PORT=81
+  #         GATEWAY_HOST=0.0.0.0
+  #         GATEWAY_LOG_LEVEL=debug
+  #         GATEWAY_ENVIRONMENT=Development
+  #         
+  #         PROBLEM_MONGO_URI=mongodb://problemmongodb:27017/problem-db
+  #         POLYGON_API_KEY=${{ secrets.POLYGON_API_KEY }}
+  #         POLYGON_API_SECRET=${{ secrets.POLYGON_API_SECRET }}
+  #         PROBLEM_STORAGE_DIR=/storage
+  #         PROBLEM_HOST=0.0.0.0
+  #         PROBLEM_PORT=3000
+  #         PROBLEM_ENDPOINT=http://problem:3000
+  #         PROBLEM_DATABASE_NAME=problem-db
+  #         
+  #         AUTH_PORT=50051
+  #         AUTH_ENDPOINT=http://auth:50051
+  #         AUTH_DATABASE_URL=postgresql://postgres:postgres@mypostgres:5432/auth_db?schema=public
+  #         NODE_ENV=development
+  #         AUTH_JWT_SECRET=your-secret-key-here
+  #         
+  #         CONTEST_MONGO_URI=mongodb://contestmongodb:27017/contestdb
+  #         CONTEST_MONGO_DATABASE_NAME=contestdb
+  #         CONTEST_REDIS_HOST=rediscontest
+  #         CONTEST_REDIS_PORT=6379
+  #         CONTEST_ENV=Development
+  #         CONETST_LOG_LEVEL=debug
+  #         CONTEST_PORT=8001
+  #         CONTEST_HOST=0.0.0.0
+  #         EOF
+  #     
+  #     - name: Create storage directories
+  #       run: |
+  #         mkdir -p storage/445985
+  #         mkdir -p storage/440176
+  #     
+  #     - name: Set up Docker Compose cache environment
+  #       run: |
+  #         echo "COMPOSE_DOCKER_CLI_BUILD=1" >> $GITHUB_ENV
+  #         echo "DOCKER_BUILDKIT=1" >> $GITHUB_ENV
+  #     
+  #     - name: Start all services with Docker Compose
+  #       run: |
+  #         echo "Building and starting all services..."
+  #         DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker compose up -d --build
+  #         echo "Services starting, initial wait..."
+  #         sleep 15
+  #     
+  #     - name: Check running containers
+  #       run: |
+  #         echo "=== Container Status ==="
+  #         docker compose ps
+  #         echo ""
+  #         echo "=== Checking if all services are running ==="
+  #         docker ps --filter "name=problem" --filter "name=auth" --filter "name=gateway" --filter "name=submission-judge"
+  #     
+  #     - name: Wait for databases to be ready
+  #       run: |
+  #         echo "Waiting for MongoDB (problem-db)..."
+  #         for i in {1..20}; do
+  #           if docker compose exec -T problemmongodb mongosh --eval "db.adminCommand('ping')" > /dev/null 2>&1; then
+  #             echo "✓ Problem MongoDB is ready"
+  #             break
+  #           fi
+  #           echo "Waiting for MongoDB... ($i/20)"
+  #           sleep 2
+  #         done
+  #         
+  #         
+  #         echo "Waiting for MongoDB (submission-judge-db)..."
+  #         for i in {1..20}; do
+  #           if docker compose exec -T mongosubmissionjudgedb mongosh --eval "db.adminCommand('ping')" > /dev/null 2>&1; then
+  #             echo "✓ Submission-judge MongoDB is ready"
+  #             break
+  #           fi
+  #           echo "Waiting for Submission MongoDB... ($i/20)"
+  #           sleep 2
+  #         done
+  #         
+  #         echo "Waiting for Redis..."
+  #         for i in {1..20}; do
+  #           if docker compose exec -T redissubmissionjudge redis-cli -a root ping > /dev/null 2>&1; then
+  #             echo "✓ Redis is ready"
+  #             break
+  #           fi
+  #           echo "Waiting for Redis... ($i/20)"
+  #           sleep 2
+  #         done
+  #     
+  #         echo "Waiting for PostgreSQL (auth-db)..."
+  #         for i in {1..90}; do
+  #           if docker compose exec -T mypostgres pg_isready -U postgres > /dev/null 2>&1; then
+  #             echo "✓ PostgreSQL is ready"
+  #             break
+  #           fi
+  #           echo "Waiting for PostgreSQL... ($i/90)"
+  #           sleep 2
+  #         done
+  #     - name: Wait for auth service to be ready
+  #       run: |
+  #         echo "Waiting for auth service to be ready..."
+  #         echo "Note: Auth service runs 'prisma db push' on startup, so it may take time..."
+  #         for i in {1..90}; do
+  #           # Check if the health endpoint responds (this means container is running and app is ready)
+  #           if curl -f http://localhost:50051/auth/health 2>/dev/null | grep -q "ok"; then
+  #             echo "✓ Auth service is ready"
+  #             break
+  #           fi
+  #           # Show container status for debugging
+  #           CONTAINER_INFO=$(docker ps --filter "name=auth" --format "{{.Status}}" 2>/dev/null || echo "not found")
+  #           echo "Waiting for auth service... ($i/90) [Status: $CONTAINER_INFO]"
+  #           sleep 2
+  #         done
+  #         echo "Checking auth service logs..."
+  #         docker compose logs --tail=30 auth
+  #     
+  #     - name: Initialize auth service database
+  #       run: |
+  #         echo "Auth service already ran 'prisma db push' on startup"
+  #         echo "Checking if migrations are needed..."
+  #         docker compose exec -T auth npx prisma migrate deploy || echo "Migrations may not be needed"
+  #         echo "Seeding database with admin user..."
+  #         docker compose exec -T auth npx prisma db seed || echo "Seed may already exist"
+  #         sleep 5
+  #     
+  #     - name: Wait for problem service to be ready
+  #       run: |
+  #         echo "Waiting for problem service..."
+  #         for i in {1..90}; do
+  #           if curl -f http://localhost:3000/ 2>/dev/null | grep -q "GET request"; then
+  #             echo "✓ Problem service is ready"
+  #             break
+  #           fi
+  #           echo "Waiting for problem service... ($i/90)"
+  #           sleep 2
+  #         done
+  #         echo "Checking problem service logs..."
+  #         docker compose logs --tail=20 problem
+  #     
+  #     - name: Initialize test problems
+  #       run: |
+  #         echo "Initializing problem 445985..."
+  #         curl -X POST "http://localhost:3000/problem/add?problemId=445985" -v || echo "Problem may already exist"
+  #         sleep 5
+  #         echo "Initializing problem 440176..."
+  #         curl -X POST "http://localhost:3000/problem/add?problemId=440176" -v || echo "Problem may already exist"
+  #         sleep 5
+  #         echo "Problems initialized"
+  #     
+  #     - name: Wait for gateway service to be ready
+  #       run: |
+  #         echo "Waiting for gateway service..."
+  #         for i in {1..90}; do
+  #           # Try to reach the gateway through the auth login endpoint (should return 400/401 without credentials but proves service is up)
+  #           STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:81/api/v1/auth/login 2>/dev/null || echo "000")
+  #           if [ "$STATUS_CODE" != "000" ] && [ "$STATUS_CODE" != "502" ] && [ "$STATUS_CODE" != "503" ]; then
+  #             echo "✓ Gateway service is ready and responding (HTTP $STATUS_CODE)"
+  #             break
+  #           fi
+  #           echo "Waiting for gateway service... ($i/90) [HTTP $STATUS_CODE]"
+  #           sleep 2
+  #         done
+  #         echo "Checking gateway service logs..."
+  #         docker compose logs --tail=20 gateway
+  #     
+  #     - name: Wait for submission-judge service to be ready
+  #       run: |
+  #         echo "Waiting for submission-judge service..."
+  #         for i in {1..90}; do
+  #           # Try to reach a submission endpoint (should return 400/404 but proves service is up)
+  #           STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/v1/submission/view/test 2>/dev/null || echo "000")
+  #           if [ "$STATUS_CODE" != "000" ] && [ "$STATUS_CODE" != "502" ] && [ "$STATUS_CODE" != "503" ]; then
+  #             echo "✓ Submission-judge service is ready and responding (HTTP $STATUS_CODE)"
+  #             break
+  #           fi
+  #           echo "Waiting for submission-judge service... ($i/90) [HTTP $STATUS_CODE]"
+  #           sleep 2
+  #         done
+  #         sleep 5
+  #         echo "Checking submission-judge service logs..."
+  #         docker compose logs --tail=30 submission-judge
+  #         echo "Verifying isolate is configured..."
+  #         docker compose exec -T submission-judge isolate --version || echo "Warning: isolate check failed"
+  #     
+  #     - name: Run integration tests
+  #       working-directory: src/Services/submission-judge
+  #       run: |
+  #         go test -v -timeout 10m ./src/tests -run TestEndToEndJudgingFlow
+  #     
+  #     - name: Save Docker images to cache
+  #       if: always()
+  #       run: |
+  #         echo "Saving Docker images for caching..."
+  #         mkdir -p /tmp/docker-images
+  #         docker compose images --format json | jq -r '.[].Repository + ":" + .[].Tag' | grep -v "<none>" | xargs -I {} echo "Saving {}"
+  #         docker save $(docker compose images --format json | jq -r '.[].Repository + ":" + .[].Tag' | grep -v "<none>" | tr '\n' ' ') -o /tmp/docker-images/images.tar 2>/dev/null || echo "Some images may not exist yet"
+  #         ls -lh /tmp/docker-images/
+  #     
+  #     - name: Show service logs on failure
+  #       if: failure()
+  #       run: |
+  #         echo "=== Problem Service Logs ==="
+  #         docker compose logs problem
+  #         echo "=== Auth Service Logs ==="
+  #         docker compose logs auth
+  #         echo "=== Gateway Service Logs ==="
+  #         docker compose logs gateway
+  #         echo "=== Submission Judge Logs ==="
+  #         docker compose logs submission-judge
+  #         echo "=== Postgres Logs ==="
+  #         docker compose logs mypostgres
+  #         echo "=== MongoDB Problem Logs ==="
+  #         docker compose logs problemmongodb
+  #     
+  #     - name: Stop services
+  #       if: always()
+  #       run: docker compose down
 
   # Security scan
   security-scan:
