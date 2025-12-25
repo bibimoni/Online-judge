@@ -1,10 +1,12 @@
 package interactorimpl
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
 	domain "github.com/bibimoni/Online-judge/submission-judge/src/domain/entitiy"
 	"github.com/bibimoni/Online-judge/submission-judge/src/infrastructure/config"
@@ -64,8 +66,23 @@ func (is *InteractorServiceImpl) RunInteractor(crossRunAddr, interactorAddr, inp
 	log.Debug().Msgf("Isolate str: %s", isolateCmdStr)
 	cmd := []string{"java", "-jar", crossRunAddr, isolateCmdStr, interactorCmdStr}
 	log.Debug().Msgf("CMD String: %s", cmd)
-	combined, err := exec.Command(cmd[0], cmd[1:]...).CombinedOutput()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	execCmd := exec.CommandContext(ctx, cmd[0], cmd[1:]...)
+
+	combined, err := execCmd.CombinedOutput()
 	msg := strings.TrimSpace(string(combined))
+
+	// Check if timeout occurred
+	if ctx.Err() == context.DeadlineExceeded {
+		log.Warn().Msgf("CrossRun timed out after 15 seconds on test case")
+		log.Warn().Msgf("This usually means a pipe deadlock or infinite loop")
+		log.Warn().Msgf("Output so far: %s", msg)
+		return domain.JUDGEMENT_FAILED, -1, "Interactive process timed out", nil
+	}
+
 	log.Debug().Msgf("Message: %s, exit code: %v", msg, err)
 
 	if err == nil {
@@ -77,5 +94,6 @@ func (is *InteractorServiceImpl) RunInteractor(crossRunAddr, interactorAddr, inp
 		code := exitErr.ExitCode()
 		return checkerimpl.MapExitCodeToVerdict(code), code, msg, nil
 	}
+
 	return "", -1, "", nil
 }

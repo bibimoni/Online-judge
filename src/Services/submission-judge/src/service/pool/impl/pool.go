@@ -104,6 +104,16 @@ func (ps *PoolServiceImpl) Get() (*domain.Isolate, error) {
 }
 
 func (ps *PoolServiceImpl) Put(i *domain.Isolate) {
+	// clean up after each run to avoid accumulation of memory
+	// may need better approach for performance improvement
+	err := ps.isolateService.Cleanup(i)
+	if err != nil {
+		config.GetLogger().Warn().Err(err).Msg("Error happend when cleanup isolate")
+	}
+	err = ps.isolateService.Init(i)
+	if err != nil {
+		config.GetLogger().Warn().Err(err).Msg("Error happend when re-init isolate")
+	}
 	ps.pool.Isolates <- i
 }
 
