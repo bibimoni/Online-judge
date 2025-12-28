@@ -16,6 +16,7 @@ type PyPy3 struct {
 	name        string
 	compileArgs []string
 	needCompile bool
+	pkg.LanguageService
 }
 
 func (pypy3 PyPy3) ID() string {
@@ -49,7 +50,7 @@ func (pypy3 PyPy3) Run(i *domain.Isolate, rc *domain.RunConfig, req *isolateserv
 
 	i.Logger.Info().Msgf("Start compiling source code with id: %s", req.SubmissionId)
 
-	return req.IService.Run(
+	return pypy3.IService.Run(
 		i, *rc, req, "/usr/bin/pypy3", runArgs...,
 	)
 }
@@ -64,7 +65,7 @@ func (pypy3 PyPy3) RunCmdStrNoStream(i *domain.Isolate, rc *domain.RunConfig, re
 
 	i.Logger.Info().Msgf("Start compiling source code with id: %s", req.SubmissionId)
 
-	return req.IService.RunCmdStrNoStream(
+	return pypy3.IService.RunCmdStrNoStream(
 		i, *rc, req, "/usr/bin/pypy3", runArgs...,
 	)
 }
@@ -89,7 +90,7 @@ func (pypy3 PyPy3) Compile(i *domain.Isolate, req *isolateservice.SubmissionRequ
 
 	i.Logger.Info().Msgf("Start compiling source code with id: %s", req.SubmissionId)
 
-	return req.IService.Run(
+	return pypy3.IService.Run(
 		i, rc, req, "/usr/bin/pypy3", runArgs...,
 	)
 }

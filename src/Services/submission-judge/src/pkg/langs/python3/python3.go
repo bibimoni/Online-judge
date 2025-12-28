@@ -16,6 +16,7 @@ type Python3 struct {
 	name        string
 	compileArgs []string
 	needCompile bool
+	pkg.LanguageService
 }
 
 func (python Python3) ID() string {
@@ -49,7 +50,7 @@ func (python Python3) Run(i *domain.Isolate, rc *domain.RunConfig, req *isolates
 
 	i.Logger.Info().Msgf("Start compiling source code with id: %s", req.SubmissionId)
 
-	return req.IService.Run(
+	return python.IService.Run(
 		i, *rc, req, "/usr/bin/python3", runArgs...,
 	)
 }
@@ -64,7 +65,7 @@ func (python Python3) RunCmdStrNoStream(i *domain.Isolate, rc *domain.RunConfig,
 
 	i.Logger.Info().Msgf("Start compiling source code with id: %s", req.SubmissionId)
 
-	return req.IService.RunCmdStrNoStream(
+	return python.IService.RunCmdStrNoStream(
 		i, *rc, req, "/usr/bin/python3", runArgs...,
 	)
 }
@@ -89,7 +90,7 @@ func (python Python3) Compile(i *domain.Isolate, req *isolateservice.SubmissionR
 
 	i.Logger.Info().Msgf("Start compiling source code with id: %s", req.SubmissionId)
 
-	return req.IService.Run(
+	return python.IService.Run(
 		i, rc, req, "/usr/bin/python3", runArgs...,
 	)
 }
@@ -103,5 +104,5 @@ var python3 = Python3{
 }
 
 func GetAllOptions() []pkg.Language {
-	return []pkg.Language{python3}
+	return []pkg.Language{&python3}
 }
