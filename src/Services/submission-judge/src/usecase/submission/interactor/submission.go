@@ -2,7 +2,6 @@ package interactor
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 
 	// "strconv"
@@ -14,7 +13,6 @@ import (
 	"github.com/bibimoni/Online-judge/submission-judge/src/infrastructure/config"
 	"github.com/bibimoni/Online-judge/submission-judge/src/pkg/memory"
 	isolateservice "github.com/bibimoni/Online-judge/submission-judge/src/service/isolate"
-	isolatei "github.com/bibimoni/Online-judge/submission-judge/src/service/isolate/impl"
 	"github.com/bibimoni/Online-judge/submission-judge/src/service/judge"
 	"github.com/bibimoni/Online-judge/submission-judge/src/service/problem"
 	usecase "github.com/bibimoni/Online-judge/submission-judge/src/usecase/submission"
@@ -76,18 +74,12 @@ func (si *SubmissionInteractor) SubmitSubmission(ctx context.Context, input *use
 		return nil, err
 	}
 
-	is, err := isolatei.NewIsolateService()
-	if err != nil {
-		return nil, fmt.Errorf("Can't create new isolate service: %v", err)
-	}
-
 	req := isolateservice.SubmissionRequest{
 		SubmissionId:   submissionId,
 		Username:       input.Username,
 		Sourcecode:     input.Code,
 		SubmissionType: input.SubmissionType,
 		ProblemId:      input.ProblemId,
-		IService:       is,
 		LanguageId:     input.LanguageId,
 		EvalId:         evalId,
 	}

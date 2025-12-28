@@ -2,13 +2,12 @@ package websocketsubmission
 
 import (
 	"github.com/bibimoni/Online-judge/submission-judge/src/common"
-	appctx "github.com/bibimoni/Online-judge/submission-judge/src/components"
 	usecase "github.com/bibimoni/Online-judge/submission-judge/src/usecase/wssubmission"
 	"github.com/bibimoni/Online-judge/submission-judge/src/usecase/wssubmission/interactor"
 	"github.com/gin-gonic/gin"
 )
 
-func HandleSubmissionWSRequest(appContext appctx.AppContext, wsSubmissionInteractor *interactor.WSSubmissionInteractor) gin.HandlerFunc {
+func HandleSubmissionWSRequest(wsSubmissionInteractor *interactor.WSSubmissionInteractor) gin.HandlerFunc {
 	return common.InvokeWSUseCase(
 		toSubmissionWSRequest,
 		wsSubmissionInteractor.SubmissionStatus,

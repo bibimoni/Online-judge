@@ -43,13 +43,13 @@ func main() {
 	workerService := workerimpl.NewWorkerService(
 		appCtx.GetRedisRepo(),
 		appCtx.GetJudgeService(),
-		appCtx.GetIsolateService(),
+		// appCtx.GetIsolateService(),
 		appCtx.GetProblemService(),
 		cfg.Judge.Amount,
 	)
 	workerService.Start()
 
-	store.DefaultStore = si.NewStoreWithDefaultLangs()
+	store.DefaultStore = si.NewStoreWithDefaultLangs(appCtx.GetIsolateService())
 
 	r := gin.New()
 	r.Use(gin.Recovery())

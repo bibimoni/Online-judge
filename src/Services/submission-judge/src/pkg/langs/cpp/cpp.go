@@ -16,6 +16,7 @@ type Cpp struct {
 	name        string
 	compileArgs []string
 	needCompile bool
+	pkg.LanguageService
 }
 
 func (cpp Cpp) ID() string {
@@ -38,17 +39,25 @@ func (cpp Cpp) ExecutableName() string {
 	return "main"
 }
 
+func (cpp Cpp) GetCompileArgs() []string {
+	return cpp.compileArgs
+}
+
+func (cpp Cpp) GetCompilerBin() string {
+	return "/usr/bin/g++"
+}
+
 // Run cpp file, which is a binary file, make sure it's present in the isolate working directory
 func (cpp Cpp) Run(i *domain.Isolate, rc *domain.RunConfig, req *isolateservice.SubmissionRequest) error {
 	i.Logger.Info().Msgf("Start running source code with id: %s", req.SubmissionId)
 
-	return req.IService.Run(
+	return cpp.IService.Run(
 		i, *rc, req, utils.GetMappedFileNamePath(cpp.ExecutableName()),
 	)
 }
 
 func (cpp Cpp) RunCmdStrNoStream(i *domain.Isolate, rc *domain.RunConfig, req *isolateservice.SubmissionRequest) ([]string, error) {
-	return req.IService.RunCmdStrNoStream(
+	return cpp.IService.RunCmdStrNoStream(
 		i, *rc, req, utils.GetMappedFileNamePath(cpp.ExecutableName()),
 	)
 }
@@ -75,8 +84,8 @@ func (cpp Cpp) Compile(i *domain.Isolate, req *isolateservice.SubmissionRequest,
 
 	i.Logger.Info().Msgf("Start compiling source code with id: %s", req.SubmissionId)
 
-	return req.IService.Run(
-		i, rc, req, "/usr/bin/g++", runArgs...,
+	return cpp.IService.Run(
+		i, rc, req, cpp.GetCompilerBin(), runArgs...,
 	)
 }
 
@@ -107,5 +116,5 @@ var cpp20 = Cpp{
 }
 
 func GetAllOptions() []pkg.Language {
-	return []pkg.Language{cpp11, cpp14, cpp17, cpp20}
+	return []pkg.Language{&cpp11, &cpp14, &cpp17, &cpp20}
 }

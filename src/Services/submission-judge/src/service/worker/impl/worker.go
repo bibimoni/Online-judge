@@ -4,7 +4,6 @@ import (
 	"context"
 	redisRepo "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/redissubmission"
 	"github.com/bibimoni/Online-judge/submission-judge/src/infrastructure/config"
-	isolateservice "github.com/bibimoni/Online-judge/submission-judge/src/service/isolate"
 	"github.com/bibimoni/Online-judge/submission-judge/src/service/judge"
 	"github.com/bibimoni/Online-judge/submission-judge/src/service/problem"
 	"github.com/bibimoni/Online-judge/submission-judge/src/service/store"
@@ -16,7 +15,6 @@ import (
 type WorkerServiceImpl struct {
 	redisRepo      redisRepo.RedisSubmissionRepository
 	judgeService   judge.JudgeService
-	isolateService isolateservice.IsolateService
 	problemService problem.ProblemService
 	quit           chan struct{}
 	wg             sync.WaitGroup
@@ -26,14 +24,12 @@ type WorkerServiceImpl struct {
 func NewWorkerServiceImpl(
 	redis redisRepo.RedisSubmissionRepository,
 	judgeService judge.JudgeService,
-	isolateService isolateservice.IsolateService,
 	problemService problem.ProblemService,
 	workerCount int,
 ) *WorkerServiceImpl {
 	return &WorkerServiceImpl{
 		redisRepo:      redis,
 		judgeService:   judgeService,
-		isolateService: isolateService,
 		problemService: problemService,
 		quit:           make(chan struct{}),
 		workerCount:    workerCount,
@@ -42,11 +38,10 @@ func NewWorkerServiceImpl(
 func NewWorkerService(
 	redis redisRepo.RedisSubmissionRepository,
 	judgeService judge.JudgeService,
-	isolateService isolateservice.IsolateService,
 	problemService problem.ProblemService,
 	workerCount int,
 ) worker.WorkerService {
-	return NewWorkerServiceImpl(redis, judgeService, isolateService, problemService, workerCount)
+	return NewWorkerServiceImpl(redis, judgeService, problemService, workerCount)
 }
 func (ws *WorkerServiceImpl) Start() {
 	for range ws.workerCount {
@@ -72,7 +67,6 @@ func (ws *WorkerServiceImpl) worker() {
 				time.Sleep(time.Second)
 				continue
 			}
-			req.IService = ws.isolateService
 			lang, err := store.DefaultStore.Get(req.LanguageId)
 			if err != nil {
 				config.GetLogger().Error().Err(err).Msg("Unknown language")
