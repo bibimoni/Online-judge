@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	domain "github.com/bibimoni/Online-judge/submission-judge/src/domain/entitiy"
@@ -135,11 +136,12 @@ func buildArgs(i *domain.Isolate, rc domain.RunConfig, submissionId string) ([]s
 		args = append(args, fmt.Sprintf("--env=%s", rc.Env[ind]))
 	}
 	for _, rule := range rc.DirectoryMaps {
-		arg := fmt.Sprintf("--dir=%s=%s", rule.Inside, rule.Outside)
+		var arg strings.Builder
+		fmt.Fprintf(&arg, "--dir=%s=%s", rule.Inside, rule.Outside)
 		for _, opt := range rule.Options {
-			arg += ":" + string(opt)
+			arg.WriteString(":" + string(opt))
 		}
-		args = append(args, arg)
+		args = append(args, arg.String())
 	}
 
 	if rc.TimeLimit > 0 {

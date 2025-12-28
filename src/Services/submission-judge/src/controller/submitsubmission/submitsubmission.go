@@ -2,7 +2,6 @@ package transportsubmitsubmission
 
 import (
 	"github.com/bibimoni/Online-judge/submission-judge/src/common"
-	appctx "github.com/bibimoni/Online-judge/submission-judge/src/components"
 	"github.com/bibimoni/Online-judge/submission-judge/src/controller"
 	domain "github.com/bibimoni/Online-judge/submission-judge/src/domain/entitiy"
 	"github.com/gin-gonic/gin"
@@ -14,7 +13,7 @@ import (
 	"github.com/bibimoni/Online-judge/submission-judge/src/usecase/submission/interactor"
 )
 
-func HandleSubmitSubmissionRequest(appContext appctx.AppContext, submissioninteractor *interactor.SubmissionInteractor) gin.HandlerFunc {
+func HandleSubmitSubmissionRequest(submissioninteractor *interactor.SubmissionInteractor) gin.HandlerFunc {
 	return common.InvokeUseCase(
 		toSubmitSubmissionType,
 		submissioninteractor.SubmitSubmission,

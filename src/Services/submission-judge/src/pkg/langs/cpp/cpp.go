@@ -39,6 +39,14 @@ func (cpp Cpp) ExecutableName() string {
 	return "main"
 }
 
+func (cpp Cpp) GetCompileArgs() []string {
+	return cpp.compileArgs
+}
+
+func (cpp Cpp) GetCompilerBin() string {
+	return "/usr/bin/g++"
+}
+
 // Run cpp file, which is a binary file, make sure it's present in the isolate working directory
 func (cpp Cpp) Run(i *domain.Isolate, rc *domain.RunConfig, req *isolateservice.SubmissionRequest) error {
 	i.Logger.Info().Msgf("Start running source code with id: %s", req.SubmissionId)
@@ -77,7 +85,7 @@ func (cpp Cpp) Compile(i *domain.Isolate, req *isolateservice.SubmissionRequest,
 	i.Logger.Info().Msgf("Start compiling source code with id: %s", req.SubmissionId)
 
 	return cpp.IService.Run(
-		i, rc, req, "/usr/bin/g++", runArgs...,
+		i, rc, req, cpp.GetCompilerBin(), runArgs...,
 	)
 }
 
