@@ -58,7 +58,7 @@ func (ss *StoreServiceImpl) Get(id string) (pkg.Language, error) {
 
 func (ss *StoreServiceImpl) Register(l pkg.Language) {
 	// include isolate service in the language directly
-	l.SetIsolateService(ss.iService)
+	l.InitLanguageService(ss.iService, l)
 	ss.languageList = append(ss.languageList, l)
 }
 

@@ -29,6 +29,7 @@ func main() {
 		r.Method("GET", "/problem/view/*", proxy.SubmissionApiProxy())
 		r.With(middlewares.WithPermission("submit_code")).Method("POST", "/submit", proxy.SubmissionApiProxy())
 		r.With(middlewares.WithPermission("view_submission")).Handle("/ws", proxy.WSSubmissionProxy())
+		r.Method("GET", "/lang/all", proxy.SubmissionApiProxy())
 	})
 
 	r.Route("/problem", func(r chi.Router) {
