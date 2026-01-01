@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	repository "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/redissubmission"
 	"github.com/bibimoni/Online-judge/submission-judge/src/infrastructure/config"
@@ -105,4 +106,8 @@ func (rs *RedisSubmissionRepositoryImpl) PopSubmissionJob(ctx context.Context) (
 		return nil, err
 	}
 	return &req, nil
+}
+
+func (rs *RedisSubmissionRepositoryImpl) SetNX(ctx context.Context, key string, value string, ttl time.Duration) (bool, error) {
+	return rs.rdb.SetNX(ctx, key, value, ttl).Result()
 }

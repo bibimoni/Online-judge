@@ -9,9 +9,3 @@ type JudgeData struct {
 }
 
 type JudgeDataFormat string
-
-const (
-	ICPC      JudgeDataFormat = "ICPC"
-	IOI       JudgeDataFormat = "IOI"
-	IOI_BATCH JudgeDataFormat = "IOI_BATCH"
-)

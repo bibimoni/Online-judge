@@ -20,5 +20,6 @@ type SubmissionType string
 
 const (
 	CUSTOM SubmissionType = "CUSTOM"
-	ACTUAL SubmissionType = "ACTUAL"
+	ICPC   SubmissionType = "ICPC"
+	IOI    SubmissionType = "IOI"
 )

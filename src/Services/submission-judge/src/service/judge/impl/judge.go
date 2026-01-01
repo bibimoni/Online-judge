@@ -334,7 +334,7 @@ func (js *JudgeServiceImpl) executeTest(
 			return nil, "", "", err
 		}
 	} else {
-		err = lang.Run(i, &rc, req)
+		lang.Run(i, &rc, req)
 	}
 
 	vert, err := judgeutils.CheckRunStatus(i, req.SubmissionId)

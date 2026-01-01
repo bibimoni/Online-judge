@@ -13,6 +13,7 @@ type SubmissionUsecase interface {
 	SubmitSubmission(ctx context.Context, input *SubmitSubmissionInput) (output *SubmitSubmissionResponse, err error)
 	GetSubmission(ctx context.Context, input *GetSubmissionInput) (output *GetSubmissionOutput, err error)
 	GetProblemSubmission(ctx context.Context, input *GetProblemSubmissionInput)
+	RejudgeSubmission(ctx context.Context, input *RejudgeSubmissionInput) error
 }
 
 type (
@@ -63,5 +64,13 @@ type (
 
 	GetProblemSubmissionOutput struct {
 		Submissions []usecase.WSSubmissionResponse
+	}
+
+	RejudgeSubmissionInput struct {
+		SubmissionIds []string `json:"submission_ids,omitempty"`
+	}
+
+	RejudgeSubmissionOutput struct {
+		RejudgeSuccessSubmissionIds []string `json:"rejudge_success_submission_ids,omitempty"`
 	}
 )

@@ -5,6 +5,8 @@ import (
 	"time"
 
 	domain "github.com/bibimoni/Online-judge/submission-judge/src/domain/entitiy"
+	evalRepo "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/evaluation"
+	sourcecodeRepo "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/sourcecode"
 	repository "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/submission"
 	"github.com/bibimoni/Online-judge/submission-judge/src/infrastructure/config"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -13,17 +15,34 @@ import (
 )
 
 type SubmissionRepositoryImpl struct {
-	collection *mongo.Collection
+	collectionName string
+	collection     *mongo.Collection
 }
 
-func NewSubmissionRepositoryImpl(db *mongo.Database) *SubmissionRepositoryImpl {
+func NewSubmissionRepositoryImpl(
+	db *mongo.Database,
+) *SubmissionRepositoryImpl {
+	collectionName := "Submission"
 	return &SubmissionRepositoryImpl{
-		collection: db.Collection("Submission"),
+		collectionName: collectionName,
+		collection:     db.Collection(collectionName),
 	}
 }
 
-func NewSubmissionRepository(db *mongo.Database) repository.SubmissionRepository {
+func NewSubmissionRepository(
+	db *mongo.Database,
+	evalRepo *evalRepo.EvaluationRepository,
+	sourcecodeRepo *sourcecodeRepo.SourcecodeRepository,
+) repository.SubmissionRepository {
 	return NewSubmissionRepositoryImpl(db)
+}
+
+func (sr *SubmissionRepositoryImpl) GetCollectionName() string {
+	return sr.collectionName
+}
+
+func (sr *SubmissionRepositoryImpl) GetCollection() *mongo.Collection {
+	return sr.collection
 }
 
 func (sr *SubmissionRepositoryImpl) FindAllProblemSubmissionIds(ctx context.Context, problemId string) ([]string, error) {

@@ -14,12 +14,15 @@ import (
 )
 
 type SourcecodeRepositoryImpl struct {
-	collection *mongo.Collection
+	collectionName string
+	collection     *mongo.Collection
 }
 
 func NewSourcecodeRepositoryImpl(db *mongo.Database) *SourcecodeRepositoryImpl {
+	collectionName := "Sourcecode"
 	return &SourcecodeRepositoryImpl{
-		collection: db.Collection("Sourcecode"),
+		collectionName: collectionName,
+		collection:     db.Collection(collectionName),
 	}
 }
 
@@ -27,9 +30,13 @@ func NewSourcecodeRepository(db *mongo.Database) repository.SourcecodeRepository
 	return NewSourcecodeRepositoryImpl(db)
 }
 
+func (sr *SourcecodeRepositoryImpl) GetCollectionName() string {
+	return sr.collectionName
+}
+
 func (sr *SourcecodeRepositoryImpl) CreateSourcecode(ctx context.Context, source string, languageId string, submissionId string) (string, error) {
 	if !store.DefaultStore.Contains(languageId) {
-		return "", fmt.Errorf("Currently there is no support for language %s", languageId)
+		return "", fmt.Errorf("currently there is no support for language %s", languageId)
 	}
 
 	sid, err := bson.ObjectIDFromHex(submissionId)

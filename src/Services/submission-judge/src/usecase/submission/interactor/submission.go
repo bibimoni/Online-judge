@@ -2,6 +2,7 @@ package interactor
 
 import (
 	"context"
+	"slices"
 	"strconv"
 
 	// "strconv"
@@ -92,6 +93,50 @@ func (si *SubmissionInteractor) SubmitSubmission(ctx context.Context, input *use
 		Message: "Submit successfully!",
 		ID:      submissionId,
 	}, nil
+}
+
+func (si *SubmissionInteractor) RejudgeSubmission(ctx context.Context, input *usecase.RejudgeSubmissionInput) (*usecase.RejudgeSubmissionOutput, error) {
+	validSubmissionRequests, err := isubmission_utils.GetSubmissionRequests(
+		ctx,
+		si.evalRepo,
+		si.sourcecodeRepo,
+		si.submissionRepo,
+		input.SubmissionIds,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &usecase.RejudgeSubmissionOutput{
+		RejudgeSuccessSubmissionIds: make([]string, 0, len(validSubmissionRequests)),
+	}
+
+	var distinctProblemIds = make([]string, 0)
+	for _, req := range validSubmissionRequests {
+		distinctProblemIds = append(distinctProblemIds, req.ProblemId)
+	}
+
+	slices.Sort(distinctProblemIds)
+	distinctProblemIds = slices.Compact(distinctProblemIds)
+
+	var problemInfos = make(map[string]*problem.ProblemServiceGetOutput)
+	for _, pid := range distinctProblemIds {
+		pinfo, err := si.problemService.Get(ctx, pid)
+		if err != nil {
+			return nil, err
+		}
+		problemInfos[pid] = pinfo
+	}
+
+	for _, req := range validSubmissionRequests {
+		resp.RejudgeSuccessSubmissionIds = append(resp.RejudgeSuccessSubmissionIds, req.SubmissionId)
+		si.judgeService.Judge(ctx, &req, problemInfos[req.ProblemId])
+	}
+
+	config.GetLogger().Info().Msgf("Rejudge %d submissions", len(validSubmissionRequests))
+
+	return resp, nil
 }
 
 func (si *SubmissionInteractor) GetSubmission(ctx context.Context, input *usecase.GetSubmissionInput) (*usecase.GetSubmissionOutput, error) {

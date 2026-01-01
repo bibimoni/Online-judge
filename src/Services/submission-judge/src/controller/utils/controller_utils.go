@@ -1,4 +1,4 @@
-package controller_utils
+package controllerutils
 
 import (
 	appctx "github.com/bibimoni/Online-judge/submission-judge/src/components"

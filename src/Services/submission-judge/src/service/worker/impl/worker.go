@@ -77,6 +77,19 @@ func (ws *WorkerServiceImpl) worker() {
 				config.GetLogger().Error().Err(err).Msg("Unknown problem")
 				continue
 			}
+
+			ttl := time.Duration(problemInfo.TimeLimit*problemInfo.TestNum*2) * time.Millisecond
+			status, err := ws.redisRepo.SetNX(ctx, req.SubmissionId, "locked", ttl)
+			if err != nil {
+				config.GetLogger().Error().Err(err).Msg("Error getting submission status from redis")
+				continue
+			}
+			if !status {
+				config.GetLogger().Info().Msgf("Submission %s is already being processed, skipping...", req.SubmissionId)
+				continue
+			}
+			config.GetLogger().Info().Msgf("Locking submission %s for %v", req.SubmissionId, ttl)
+
 			err = ws.judgeService.JudgeStart(ctx, lang, req, problemInfo)
 			if err != nil {
 				config.GetLogger().Error().Err(err).Msg("Error processing submission")
