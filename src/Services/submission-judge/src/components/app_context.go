@@ -4,7 +4,6 @@ import (
 	evalrepo "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/evaluation"
 	ei "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/evaluation/impl"
 	redisrepo "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/redissubmission"
-	redisrepoimpl "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/redissubmission/impl"
 	ri "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/redissubmission/impl"
 	sourcecoderepo "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/sourcecode"
 	sci "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/sourcecode/impl"
@@ -39,6 +38,7 @@ type AppContext interface {
 	GetRedisRepo() redisrepo.RedisSubmissionRepository
 	GetIsolateService() isolateservice.IsolateService
 	GetJudgeService() judge.JudgeService
+	GetDB() *mongo.Database
 }
 
 type appCtx struct {
@@ -68,26 +68,27 @@ func (ctx *appCtx) GetInteractorService() interactor.InteractorService     { ret
 func (ctx *appCtx) GetRedisRepo() redisrepo.RedisSubmissionRepository      { return ctx.redisRepo }
 func (ctx *appCtx) GetIsolateService() isolateservice.IsolateService       { return ctx.isolateService }
 func (ctx *appCtx) GetJudgeService() judge.JudgeService                    { return ctx.judgeService }
+func (ctx *appCtx) GetDB() *mongo.Database                                 { return ctx.database }
 
 func NewAppContext(
 	database *mongo.Database,
 	pool poolservice.PoolService,
 	rdb *redis.Client,
 ) *appCtx {
-	submissionRepo := si.NewSubmissionRepository(database)
-	sourcecodeRepo := sci.NewSourcecodeRepository(database)
 	problemSvc, err := pi.NewProblemService()
 	if err != nil {
 		config.GetLogger().Panic().Err(err).Msg("Can't not create problem service")
 	}
+	sourcecodeRepo := sci.NewSourcecodeRepository(database)
 	evalRepo := ei.NewEvaluationRepository(database)
+	submissionRepo := si.NewSubmissionRepository(database, &evalRepo, &sourcecodeRepo)
 	checkerS := checkerimpl.NewCheckerService()
 	interactorS := interactorimpl.NewInteractorService()
 	redis := ri.NewRedisSubmissionRepository(rdb)
 	isolateS, _ := ii.NewIsolateService()
 	judgeSvc := ji.NewJudgeServiceImpl(pool, problemSvc, evalRepo, checkerS, interactorS, redis, submissionRepo, sourcecodeRepo, isolateS)
 
-	redisRepo := redisrepoimpl.NewRedisSubmissionRepository(rdb)
+	redisRepo := ri.NewRedisSubmissionRepository(rdb)
 	return &appCtx{
 		database,
 		pool,

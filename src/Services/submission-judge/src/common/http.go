@@ -63,7 +63,7 @@ func SendRequest[T any](ctx context.Context, reqData APIRequest) (*T, error) {
 	return &result, nil
 }
 
-// This will return the stream of the result, allows for more
+// SendRequestNoJson return the stream of the result, allows for more
 // type of data returned from http request (binary, plain text, etc..)
 func SendRequestNoJson(ctx context.Context, reqData APIRequest) (*http.Response, error) {
 	var bodyReader io.Reader

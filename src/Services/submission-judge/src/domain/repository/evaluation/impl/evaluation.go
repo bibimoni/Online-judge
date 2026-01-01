@@ -13,17 +13,24 @@ import (
 )
 
 type EvaluationRepositoryImpl struct {
-	collection *mongo.Collection
+	collectionName string
+	collection     *mongo.Collection
 }
 
 func NewEvaluationRepositoryImpl(db *mongo.Database) *EvaluationRepositoryImpl {
+	collectionName := "Evaluation"
 	return &EvaluationRepositoryImpl{
-		collection: db.Collection("Evaluation"),
+		collectionName: collectionName,
+		collection:     db.Collection(collectionName),
 	}
 }
 
 func NewEvaluationRepository(db *mongo.Database) repository.EvaluationRepository {
 	return NewEvaluationRepositoryImpl(db)
+}
+
+func (er *EvaluationRepositoryImpl) GetCollectionName() string {
+	return er.collectionName
 }
 
 func (er *EvaluationRepositoryImpl) CreateEval(ctx context.Context, submissionId string, TL int, ML memory.Memory, nCase int) (string, error) {
@@ -173,3 +180,45 @@ func (er *EvaluationRepositoryImpl) UpdateFinal(
 	}
 	return nil
 }
+
+// FilterJudgedSubmissions filters submissions where it has been judged (FINISHED status)
+// func (er *EvaluationRepositoryImpl) FilterJudgedSubmissions(ctx context.Context, submissionIds []string) ([]string, error) {
+// 	var bsonIds []bson.ObjectID
+// 	for _, id := range submissionIds {
+// 		bid, err := bson.ObjectIDFromHex(id)
+// 		if err != nil {
+// 			return nil, err
+// 		}
+// 		bsonIds = append(bsonIds, bid)
+// 	}
+//
+// 	filter := bson.M{
+// 		"$and": bson.A{
+// 			bson.M{"eval_status": domain.FINISHED},
+// 			bson.M{"submission_id": bson.M{"$in": bsonIds}},
+// 		},
+// 	}
+// 	cursor, err := er.collection.Find(ctx, filter)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+//
+// 	defer cursor.Close(ctx)
+//
+// 	var filteredIds []string
+// 	for cursor.Next(ctx) {
+// 		var doc struct {
+// 			submissionID bson.ObjectID `bson:"submission_id"`
+// 		}
+//
+// 		if err := cursor.Decode(&doc); err != nil {
+// 			return nil, err
+// 		}
+// 		filteredIds = append(filteredIds, doc.submissionID.Hex())
+// 	}
+//
+// 	if err := cursor.Err(); err != nil {
+// 		return nil, err
+// 	}
+// 	return filteredIds, nil
+// }
