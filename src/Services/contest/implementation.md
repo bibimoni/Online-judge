@@ -62,7 +62,7 @@ To support rejudge/skip reliably we store the contest view of the submission.
 - `SubmissionIDs` (string[])
 - `ProblemID` (reference to Problem)
 - `RequestedBy` (string)
-- `Status` (enum: PENDING, JUDGING, COMPLETED, FAILED)
+<!-- - `Status` (enum: PENDING, JUDGING, COMPLETED, FAILED) -->
 
 ## Repository interfaces
 

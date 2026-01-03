@@ -3,7 +3,7 @@ package domain
 import "time"
 
 type Contestant struct {
-	UserID    uint64    `bson:"user-id"`
+	Username  string    `bson:"username"`
 	RealStart time.Time `bson:"real-start"`
 
 	Submissions []uint64 `bson:"submissions"`
@@ -12,9 +12,9 @@ type Contestant struct {
 	Points      map[uint64]float64 `bson:"points"` // points of each problem
 }
 
-func CreateContestant(userId uint64) Contestant {
+func CreateContestant(username string) Contestant {
 	newContestant := Contestant{
-		UserID:    userId,
+		Username:  username,
 		RealStart: time.Now(),
 
 		Submissions: []uint64{},

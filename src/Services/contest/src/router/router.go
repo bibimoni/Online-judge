@@ -2,15 +2,14 @@ package router
 
 import (
 	"contest/src/components"
-	"contest/src/controller"
+	contestcontroller "contest/src/controller/contest"
 
 	"github.com/gin-gonic/gin"
 )
 
 func RegisterRouter(group *gin.RouterGroup, appContext components.AppContext) {
-	contestController := controller.NewContestController(appContext)
-
+	contestInteractor := appContext.GetContestInteractor()
 	contest := group.Group("/contest")
-	contest.POST("/create", contestController.Create())
-	contest.POST("/edit", contestController.Edit())
+	contest.POST("/create", contestcontroller.Create(contestInteractor))
+	contest.POST("/edit", contestcontroller.Edit(contestInteractor))
 }

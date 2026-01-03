@@ -2,36 +2,29 @@ package components
 
 import (
 	repository "contest/src/domain/repository/contest/impl"
-	createcontest "contest/src/usecase/create_contest"
-	createcontestimpl "contest/src/usecase/create_contest/impl"
-	editcontest "contest/src/usecase/edit_contest"
-	editcontestimpl "contest/src/usecase/edit_contest/impl"
+	contestusecase "contest/src/usecase/contest"
+	contestinteractor "contest/src/usecase/contest/interactor"
 
 	"github.com/redis/go-redis/v9"
-	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 type AppContext interface {
 	GetMainDbConnection() *mongo.Database
 	GetRedis() *redis.Client
-	GetCreateContestInteractor() createcontest.CreateContestInteractor
-	GetEditContestInteractor() editcontest.EditContestInteractor
+	GetContestInteractor() contestusecase.ContestInteractor
 }
 
 type appCtx struct {
-	database                *mongo.Database
-	rdb                     *redis.Client
-	createContestInteractor createcontest.CreateContestInteractor
-	editContestInteractor   editcontest.EditContestInteractor
+	database          *mongo.Database
+	rdb               *redis.Client
+	contestInteractor contestusecase.ContestInteractor
 }
 
 func (ctx *appCtx) GetMainDbConnection() *mongo.Database { return ctx.database }
 func (ctx *appCtx) GetRedis() *redis.Client              { return ctx.rdb }
-func (ctx *appCtx) GetCreateContestInteractor() createcontest.CreateContestInteractor {
-	return ctx.createContestInteractor
-}
-func (ctx *appCtx) GetEditContestInteractor() editcontest.EditContestInteractor {
-	return ctx.editContestInteractor
+func (ctx *appCtx) GetContestInteractor() contestusecase.ContestInteractor {
+	return ctx.contestInteractor
 }
 
 func NewAppContext(
@@ -39,14 +32,11 @@ func NewAppContext(
 	rdb *redis.Client,
 ) *appCtx {
 	contestRepo := repository.NewContestRepository(database)
-
-	createContestInteractor := createcontestimpl.NewCreateContestInteractor(contestRepo)
-	editContestInteractor := editcontestimpl.NewEditContestInteractor(contestRepo)
+	contestInteractor := contestinteractor.NewContestInteractor(contestRepo)
 
 	return &appCtx{
-		database:                database,
-		rdb:                     rdb,
-		createContestInteractor: createContestInteractor,
-		editContestInteractor:   editContestInteractor,
+		database:          database,
+		rdb:               rdb,
+		contestInteractor: contestInteractor,
 	}
 }

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 func GetMongoDbClient(connectionString string) (*mongo.Client, error) {
@@ -16,13 +16,13 @@ func GetMongoDbClient(connectionString string) (*mongo.Client, error) {
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
 	clientOptions := options.Client().ApplyURI(connectionString).SetServerAPIOptions(serverAPI)
 
-	client, err := mongo.Connect(ctx, clientOptions)
+	client, err := mongo.Connect(clientOptions)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to connect to mongoDB: %w", err)
+		return nil, fmt.Errorf("failed to connect to mongoDB: %w", err)
 	}
 
 	if err = client.Ping(ctx, nil); err != nil {
-		return nil, fmt.Errorf("Couldn't ping mongoDB: %w", err)
+		return nil, fmt.Errorf("couldn't ping mongoDB: %w", err)
 	}
 
 	return client, nil

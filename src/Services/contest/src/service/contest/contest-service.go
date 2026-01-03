@@ -1,16 +1,11 @@
-package repository
+package contestservice
 
 import (
-	domain "contest/src/domain/entity"
 	"context"
 )
 
-type ContestRepository interface {
-	GetById(contestId string) (domain.Contest, error)
+type ContestService interface {
 	Create(ctx context.Context, author string) (string, error)
-
-	// AddContestant(contestId string, userId uint64) error
-
 	AddPeople(contestId string, peopleType string, username string) error
 	RemovePeople(contestId string, peopleType string, username string) error
 }

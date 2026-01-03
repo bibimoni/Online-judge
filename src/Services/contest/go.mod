@@ -1,6 +1,6 @@
 module contest
 
-go 1.24.4
+go 1.25.5
 
 require (
 	github.com/fatih/color v1.18.0
@@ -10,15 +10,8 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/redis/go-redis/v9 v9.12.1
 	github.com/rs/zerolog v1.34.0
-	go.mongodb.org/mongo-driver v1.17.4
-	github.com/google/uuid v1.6.0
-
-	// Testing dependencies
-	github.com/stretchr/testify v1.9.0
-	github.com/testcontainers/testcontainers-go v0.28.0
-	github.com/testcontainers/testcontainers-go/modules/mongodb v0.28.0
-	github.com/testcontainers/testcontainers-go/modules/redis v0.28.0
-	go.uber.org/mock v0.5.0
+	go.mongodb.org/mongo-driver/v2 v2.4.1
+	go.uber.org/mock v0.5.0 // indirect
 )
 
 require (
@@ -43,7 +36,6 @@ require (
 	github.com/quic-go/quic-go v0.54.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.0 // indirect
-	go.uber.org/mock v0.5.0 // indirect
 	golang.org/x/arch v0.20.0 // indirect
 	golang.org/x/mod v0.25.0 // indirect
 	golang.org/x/net v0.42.0 // indirect
@@ -53,7 +45,6 @@ require (
 
 require (
 	github.com/golang/snappy v1.0.0 // indirect
-	github.com/google/uuid v1.6.0
 	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
