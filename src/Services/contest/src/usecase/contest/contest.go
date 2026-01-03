@@ -24,7 +24,7 @@ type (
 	}
 
 	CreateContestInput struct {
-		Author string
+		Creator string
 	}
 
 	CreateContestOutput struct {

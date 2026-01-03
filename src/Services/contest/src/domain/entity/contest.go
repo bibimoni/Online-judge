@@ -23,7 +23,7 @@ type Contest struct {
 	Description string        `bson:"description" json:"description,omitempty"`
 
 	Authors     []string     `bson:"authors" json:"authors,omitempty"`
-	Curators    []string     `bson:"curators" json:"curators,omitempty"`
+	Admins      []string     `bson:"admins" json:"curators,omitempty"`
 	Testers     []string     `bson:"testers" json:"testers,omitempty"`
 	Contestants []Contestant `bson:"contestants" json:"contestants,omitempty"`
 
@@ -51,7 +51,7 @@ type ICPCRule struct {
 }
 
 type IOIRule struct {
-	MaxAllowedSubmissionsPerProblem uint16 `bson:"max_allowed_submissions_per_problem" json:"max_allowed_submissions_per_problem,omitempty"`
+	MaxAllowedSubmissionsPerProblem int16 `bson:"max_allowed_submissions_per_problem" json:"max_allowed_submissions_per_problem,omitempty"`
 }
 
 type ScoringType string
@@ -64,11 +64,11 @@ const (
 type ContestStatus string
 
 const (
-	ContestStatusDraft     ContestStatus = "DRAFT"
-	ContestStatusScheduled ContestStatus = "SCHEDULED"
-	ContestStatusRunning   ContestStatus = "RUNNING"
-	ContestStatusFreeze    ContestStatus = "FREEZE"
-	ContestStatusEnded     ContestStatus = "ENDED"
+	Draft     ContestStatus = "DRAFT"
+	Scheduled ContestStatus = "SCHEDULED"
+	Running   ContestStatus = "RUNNING"
+	Freeze    ContestStatus = "FREEZE"
+	Ended     ContestStatus = "ENDED"
 )
 
 func (contest *Contest) ContestantExist(username string) bool {

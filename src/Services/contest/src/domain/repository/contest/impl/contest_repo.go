@@ -1,10 +1,11 @@
 package contestrepoimpl
 
 import (
-	"contest/src/common"
 	domain "contest/src/domain/entity"
+	contestrepo "contest/src/domain/repository/contest"
 	repository "contest/src/domain/repository/contest"
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -28,14 +29,13 @@ func NewContestRepository(db *mongo.Database) repository.ContestRepository {
 	return NewContestRepositoryImpl(db)
 }
 
-func (cr *ContestRepositoryImpl) Create(ctx context.Context, author string) (string, error) {
+func (cr *ContestRepositoryImpl) Create(ctx context.Context, creator string) (string, error) {
 	newContest := domain.Contest{
-		// Id:          uuid.NewString(),
 		Name:        "",
 		Description: "",
 
-		Authors:     []string{author},
-		Curators:    []string{},
+		Authors:     []string{},
+		Admins:      []string{creator},
 		Testers:     []string{},
 		Contestants: []domain.Contestant{},
 
@@ -44,8 +44,20 @@ func (cr *ContestRepositoryImpl) Create(ctx context.Context, author string) (str
 
 		ScoreboardVisibility: domain.ScoreboardHidden,
 
-		StartTime: time.Now(),
-		EndTime:   time.Now(),
+		StartTime:   time.Now(),
+		EndTime:     time.Now(),
+		ScoringType: domain.ICPC, // defaults to ICPC
+		ICPCRules: domain.ICPCRule{
+			PenaltyMinutes:  0,
+			FreezeStartTime: time.Now(),
+		},
+		IOIRules: domain.IOIRule{
+			MaxAllowedSubmissionsPerProblem: -1,
+		},
+
+		Status:           domain.Draft,
+		FinalizeAt:       time.Now(),
+		RejudgeWindowEnd: time.Now(),
 	}
 
 	result, err := cr.collection.InsertOne(ctx, newContest)
@@ -59,50 +71,61 @@ func (cr *ContestRepositoryImpl) Create(ctx context.Context, author string) (str
 	return contestId, nil
 }
 
-func (cr *ContestRepositoryImpl) GetById(contestId string) (domain.Contest, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	var contest domain.Contest
-	err := cr.collection.FindOne(ctx, bson.M{
-		"id": contestId,
-	}).Decode(&contest)
+func (cr *ContestRepositoryImpl) GetById(ctx context.Context, contestId string) (*domain.Contest, error) {
+	cId, err := bson.ObjectIDFromHex(contestId)
 	if err != nil {
-		return domain.Contest{}, err
+		return nil, err
 	}
 
-	return contest, nil
+	var contest domain.Contest
+	err = cr.collection.FindOne(ctx, bson.M{
+		"_id": cId,
+	}).Decode(&contest)
+
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, repository.NoContestFound
+		}
+		return nil, err
+	}
+
+	return &contest, nil
 }
 
-func (cr *ContestRepositoryImpl) AddPeople(contestId string, peopleType string, username string) error {
-	if !slices.Contains(common.CONTEST_PEOPLE, peopleType) {
+func (cr *ContestRepositoryImpl) AddPeople(ctx context.Context, contestId string, peopleType string, username string) error {
+	if !slices.Contains(contestrepo.ContestPeopple, peopleType) {
 		return fmt.Errorf("invalid peopleType")
 	}
 
-	contest, err := cr.GetById(contestId)
+	contest, err := cr.GetById(ctx, contestId)
+	if err != nil {
+		return err
+	}
+
+	cId, err := bson.ObjectIDFromHex(contestId)
 	if err != nil {
 		return err
 	}
 
 	// Check if already exists
-	if peopleType == common.CONTEST_CONTESTANTS && contest.ContestantExist(username) {
-		return fmt.Errorf("contestant %d already in contest %s", username, contestId)
+	if peopleType == contestrepo.Contestant && contest.ContestantExist(username) {
+		return fmt.Errorf("contestant %s already in contest %s", username, contestId)
 	}
-	if peopleType == common.CONTEST_AUTHORS && slices.Contains(contest.Authors, username) {
-		return fmt.Errorf("author %d already in contest %s", username, contestId)
+	if peopleType == contestrepo.Author && slices.Contains(contest.Authors, username) {
+		return fmt.Errorf("author %s already in contest %s", username, contestId)
 	}
-	if peopleType == common.CONTEST_CURATORS && slices.Contains(contest.Curators, username) {
-		return fmt.Errorf("curator %d already in contest %s", username, contestId)
+	if peopleType == contestrepo.Admin && slices.Contains(contest.Admins, username) {
+		return fmt.Errorf("curator %s already in contest %s", username, contestId)
 	}
-	if peopleType == common.CONTEST_TESTERS && slices.Contains(contest.Testers, username) {
-		return fmt.Errorf("tester %d already in contest %s", username, contestId)
+	if peopleType == contestrepo.Tester && slices.Contains(contest.Testers, username) {
+		return fmt.Errorf("tester %s already in contest %s", username, contestId)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	var data interface{}
-	if peopleType == common.CONTEST_CONTESTANTS {
+	var data any
+	if peopleType == contestrepo.Contestant {
 		data = domain.CreateContestant(username)
 	} else {
 		data = username
@@ -110,7 +133,7 @@ func (cr *ContestRepositoryImpl) AddPeople(contestId string, peopleType string, 
 
 	_, err = cr.collection.UpdateOne(
 		ctx,
-		bson.M{"id": contestId},
+		bson.M{"_id": cId},
 		bson.M{"$push": bson.M{peopleType: data}},
 	)
 	if err != nil {
@@ -122,35 +145,37 @@ func (cr *ContestRepositoryImpl) AddPeople(contestId string, peopleType string, 
 	return nil
 }
 
-func (cr *ContestRepositoryImpl) RemovePeople(contestId string, peopleType string, username string) error {
-	if !slices.Contains(common.CONTEST_PEOPLE, peopleType) {
+func (cr *ContestRepositoryImpl) RemovePeople(ctx context.Context, contestId string, peopleType string, username string) error {
+	if !slices.Contains(contestrepo.ContestPeopple, peopleType) {
 		return fmt.Errorf("invalid peopleType")
 	}
 
-	contest, err := cr.GetById(contestId)
+	contest, err := cr.GetById(ctx, contestId)
+	if err != nil {
+		return err
+	}
+
+	cId, err := bson.ObjectIDFromHex(contestId)
 	if err != nil {
 		return err
 	}
 
 	// Check if already exists
-	if peopleType == common.CONTEST_CONTESTANTS && !contest.ContestantExist(username) {
+	if peopleType == contestrepo.Contestant && !contest.ContestantExist(username) {
 		return fmt.Errorf("contestant %d is not in contest %s", username, contestId)
 	}
-	if peopleType == common.CONTEST_AUTHORS && !slices.Contains(contest.Authors, username) {
+	if peopleType == contestrepo.Author && !slices.Contains(contest.Authors, username) {
 		return fmt.Errorf("author %d is not in contest %s", username, contestId)
 	}
-	if peopleType == common.CONTEST_CURATORS && !slices.Contains(contest.Curators, username) {
+	if peopleType == contestrepo.Admin && !slices.Contains(contest.Admins, username) {
 		return fmt.Errorf("curator %d is not in contest %s", username, contestId)
 	}
-	if peopleType == common.CONTEST_TESTERS && !slices.Contains(contest.Testers, username) {
+	if peopleType == contestrepo.Tester && !slices.Contains(contest.Testers, username) {
 		return fmt.Errorf("tester %d is not in contest %s", username, contestId)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
 	var data interface{}
-	if peopleType == common.CONTEST_CONTESTANTS {
+	if peopleType == contestrepo.Contestant {
 		// For pulling, we might need to match by UserID if it's an object
 		// But $pull with object should work if it matches exactly.
 		// However, CreateContestant creates a new object with timestamp, so it might not match exactly if we just recreate it.
@@ -162,14 +187,14 @@ func (cr *ContestRepositoryImpl) RemovePeople(contestId string, peopleType strin
 		// This suggests it was trying to remove exact object. But timestamp would differ.
 		// This looks like a bug in original code or I misunderstand.
 		// I will fix it to pull by UserID for contestants.
-		data = bson.M{"user_id": username}
+		data = bson.M{"username": username}
 	} else {
 		data = username
 	}
 
 	_, err = cr.collection.UpdateOne(
 		ctx,
-		bson.M{"id": contestId},
+		bson.M{"_id": cId},
 		bson.M{"$pull": bson.M{peopleType: data}},
 	)
 	if err != nil {
