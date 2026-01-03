@@ -8,17 +8,17 @@ import (
 )
 
 type ContestInteractor struct {
-	contestRepo repository.ContestRepository
+	contestRepo contestrepo.ContestRepository
 }
 
-func NewContestInteractor(contestRepo repository.ContestRepository) *ContestInteractor {
+func NewContestInteractor(contestRepo contestrepo.ContestRepository) *ContestInteractor {
 	return &ContestInteractor{
 		contestRepo: contestRepo,
 	}
 }
 
 func (i *ContestInteractor) CreateContest(ctx context.Context, input *contestusecase.CreateContestInput) (*contestusecase.CreateContestOutput, error) {
-	contestId, err := i.contestRepo.Create(ctx, input.Author)
+	contestId, err := i.contestRepo.Create(ctx, input.Creator)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func (i *ContestInteractor) EditContest(ctx context.Context, input *contestuseca
 }
 
 func (i *ContestInteractor) handleAddPeople(ctx context.Context, input *contestusecase.EditContestInput) (*contestusecase.EditContestOutput, error) {
-	err := i.contestRepo.AddPeople(input.ContestId, input.PeopleType, input.Username)
+	err := i.contestRepo.AddPeople(ctx, input.ContestId, input.PeopleType, input.Username)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func (i *ContestInteractor) handleAddPeople(ctx context.Context, input *contestu
 }
 
 func (i *ContestInteractor) handleRemovePeople(ctx context.Context, input *contestusecase.EditContestInput) (*contestusecase.EditContestOutput, error) {
-	err := i.contestRepo.RemovePeople(input.ContestId, input.PeopleType, input.Username)
+	err := i.contestRepo.RemovePeople(ctx, input.ContestId, input.PeopleType, input.Username)
 	if err != nil {
 		return nil, err
 	}

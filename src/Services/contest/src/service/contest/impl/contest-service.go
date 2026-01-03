@@ -20,10 +20,10 @@ func (s *ContestServiceImpl) Create(ctx context.Context, author string) (string,
 	return s.contestRepo.Create(ctx, author)
 }
 
-func (s *ContestServiceImpl) AddPeople(contestId string, peopleType string, username string) error {
-	return s.contestRepo.AddPeople(contestId, peopleType, username)
+func (s *ContestServiceImpl) AddPeople(ctx context.Context, contestId string, peopleType string, username string) error {
+	return s.contestRepo.AddPeople(ctx, contestId, peopleType, username)
 }
 
-func (s *ContestServiceImpl) RemovePeople(contestId string, peopleType string, username string) error {
-	return s.contestRepo.RemovePeople(contestId, peopleType, username)
+func (s *ContestServiceImpl) RemovePeople(ctx context.Context, contestId string, peopleType string, username string) error {
+	return s.contestRepo.RemovePeople(ctx, contestId, peopleType, username)
 }

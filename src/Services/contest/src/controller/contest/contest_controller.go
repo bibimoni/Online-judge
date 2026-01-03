@@ -27,12 +27,12 @@ func Edit(contestInteractor contestusecase.ContestInteractor) gin.HandlerFunc {
 }
 
 func toCreateContestInput(c *gin.Context) (*contestusecase.CreateContestInput, error) {
-	author := c.DefaultQuery("author", "")
-	if author == "" {
-		return nil, fmt.Errorf("author is required")
+	creator := c.DefaultQuery("creator", "")
+	if creator == "" {
+		return nil, fmt.Errorf("creator is required")
 	}
 	return &contestusecase.CreateContestInput{
-		Author: author,
+		Creator: creator,
 	}, nil
 }
 
