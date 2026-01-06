@@ -99,6 +99,7 @@ func WithPermission(permission string) func(http.Handler) http.Handler {
 			}
 
 			obj["username"] = res.PayLoad.User.Username
+			config.GetLogger().Debug().Msgf("Modified Body: %v", obj)
 			newBodyBytes, _ := json.Marshal(obj)
 
 			r.Body = io.NopCloser(bytes.NewBuffer(newBodyBytes))

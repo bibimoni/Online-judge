@@ -1,7 +1,9 @@
 package domain
 
 import (
+	"contest/src/common"
 	"fmt"
+	"slices"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -11,10 +13,12 @@ const (
 	ProblemCountLimit uint8 = 15
 )
 
+type ScoreboardVisibility string
+
 const (
-	ScoreboardHidden         string = "SCOREBOARD_HIDDEN"
-	ScoreboardPublic         string = "SCOREBOARD_PUBLIC"
-	ScoreboardContestantOnly string = "SCOREBOARD_CONTESTANT_ONLY"
+	ScoreboardHidden         ScoreboardVisibility = "SCOREBOARD_HIDDEN"
+	ScoreboardPublic         ScoreboardVisibility = "SCOREBOARD_PUBLIC"
+	ScoreboardContestantOnly ScoreboardVisibility = "SCOREBOARD_CONTESTANT_ONLY"
 )
 
 type Contest struct {
@@ -27,39 +31,24 @@ type Contest struct {
 	Testers     []string     `bson:"testers" json:"testers,omitempty"`
 	Contestants []Contestant `bson:"contestants" json:"contestants,omitempty"`
 
-	ProblemLabels []string `bson:"problem_labels" json:"problem_labels,omitempty"`
-	Problems      []uint64 `bson:"problems" json:"problems,omitempty"`
+	Problems []ContestProblem `bson:"problems" json:"problems,omitempty"`
 
-	ScoreboardVisibility string `bson:"scoreboard_visibility" json:"scoreboard_visibility,omitempty"`
+	ScoreboardVisibility ScoreboardVisibility `bson:"scoreboard_visibility" json:"scoreboard_visibility,omitempty"`
 
 	StartTime time.Time `bson:"start_time" json:"start_time"`
 	EndTime   time.Time `bson:"end_time" json:"end_time"`
 
-	ScoringType ScoringType `bson:"scoring_type" json:"scoring_type,omitempty"`
-	ICPCRules   ICPCRule    `bson:"penalty_rules" json:"penalty_rules"`
-	IOIRules    IOIRule     `bson:"ioi_rules" json:"ioi_rules"`
+	// ScoringType ScoringType `bson:"scoring_type" json:"scoring_type,omitempty"`
+
+	// ICPCRules   ICPCRule    `bson:"penalty_rules" json:"penalty_rules"`
+	// IOIRules    IOIRule     `bson:"ioi_rules" json:"ioi_rules"`
+
+	ContestRule ContestRule `bson:"contest_rule" json:"contest_rule"`
 
 	Status           ContestStatus `bson:"status" json:"status,omitempty"`
 	FinalizeAt       time.Time     `bson:"finalize_at" json:"finalize_at"`
 	RejudgeWindowEnd time.Time     `bson:"rejudge_window_end" json:"rejudge_window_end"`
 }
-
-type ICPCRule struct {
-	PenaltyMinutes  uint16        `bson:"penalty_minutes" json:"penalty_minutes,omitempty"`
-	FreezeStartTime time.Time     `bson:"freeze_start_time" json:"freeze_start_time"`
-	FreezeTime      time.Duration `bson:"freeze_time" json:"freeze_time,omitempty"`
-}
-
-type IOIRule struct {
-	MaxAllowedSubmissionsPerProblem int16 `bson:"max_allowed_submissions_per_problem" json:"max_allowed_submissions_per_problem,omitempty"`
-}
-
-type ScoringType string
-
-const (
-	IOI  ScoringType = "IOI"
-	ICPC ScoringType = "ICPC"
-)
 
 type ContestStatus string
 
@@ -70,6 +59,10 @@ const (
 	Freeze    ContestStatus = "FREEZE"
 	Ended     ContestStatus = "ENDED"
 )
+
+func (contest *Contest) IsAdmin(username, role string) bool {
+	return role == common.AdminRole || slices.Contains(contest.Admins, username)
+}
 
 func (contest *Contest) ContestantExist(username string) bool {
 	fmt.Printf("contestants: %v\n", contest.Contestants)

@@ -38,5 +38,12 @@ func main() {
 		r.Method("GET", "/get/{param}/problem.json", proxy.ProblemApiProxy())
 	})
 
+	r.Route("/api/v1/contest", func(r chi.Router) {
+		// r.Method("GET", "/*", proxy.ContestApiProxy())
+		r.With(middlewares.WithPermission("create_contest")).Method("POST", "/create", proxy.ContestApiProxy())
+		r.With(middlewares.WithPermission("manage_contest")).Method("POST", "/edit", proxy.ContestApiProxy())
+		r.With(middlewares.WithPermission("edit_contest")).Method("PATCH", "/patch/{contest_id}", proxy.ContestApiProxy())
+	})
+
 	s.ListenAndServe()
 }

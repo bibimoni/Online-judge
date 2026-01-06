@@ -1,29 +1,29 @@
 package contestserviceimpl
 
 import (
-	repository "contest/src/domain/repository/contest"
+	"contest/src/domain/repository/contest"
 	service "contest/src/service/contest"
 	"context"
 )
 
 type ContestServiceImpl struct {
-	contestRepo repository.ContestRepository
+	contestRepo contestrepo.ContestRepository
 }
 
-func NewContestService(contestRepo repository.ContestRepository) service.ContestService {
+func NewContestService(contestRepo contestrepo.ContestRepository) service.ContestService {
 	return &ContestServiceImpl{
 		contestRepo: contestRepo,
 	}
 }
 
-func (s *ContestServiceImpl) Create(ctx context.Context, author string) (string, error) {
-	return s.contestRepo.Create(ctx, author)
+func (s *ContestServiceImpl) Create(ctx context.Context, author, contestname string) (string, error) {
+	return s.contestRepo.Create(ctx, author, contestname)
 }
 
-func (s *ContestServiceImpl) AddPeople(ctx context.Context, contestId string, peopleType string, username string) error {
+func (s *ContestServiceImpl) AddPeople(ctx context.Context, contestId string, peopleType contestrepo.PeopleType, username string) error {
 	return s.contestRepo.AddPeople(ctx, contestId, peopleType, username)
 }
 
-func (s *ContestServiceImpl) RemovePeople(ctx context.Context, contestId string, peopleType string, username string) error {
+func (s *ContestServiceImpl) RemovePeople(ctx context.Context, contestId string, peopleType contestrepo.PeopleType, username string) error {
 	return s.contestRepo.RemovePeople(ctx, contestId, peopleType, username)
 }

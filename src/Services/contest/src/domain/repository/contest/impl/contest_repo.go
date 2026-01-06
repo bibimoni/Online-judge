@@ -3,7 +3,6 @@ package contestrepoimpl
 import (
 	domain "contest/src/domain/entity"
 	contestrepo "contest/src/domain/repository/contest"
-	repository "contest/src/domain/repository/contest"
 	"context"
 	"errors"
 	"fmt"
@@ -25,13 +24,28 @@ func NewContestRepositoryImpl(db *mongo.Database) *ContestRepositoryImpl {
 	}
 }
 
-func NewContestRepository(db *mongo.Database) repository.ContestRepository {
+func NewContestRepository(db *mongo.Database) contestrepo.ContestRepository {
 	return NewContestRepositoryImpl(db)
 }
 
-func (cr *ContestRepositoryImpl) Create(ctx context.Context, creator string) (string, error) {
+func (cr *ContestRepositoryImpl) CanCreateContest(ctx context.Context, role string) bool {
+	// Only problem setter and admin can create contest
+	if role == "admin" || role == "problem_setter" {
+		return true
+	}
+	return false
+}
+
+func (cr *ContestRepositoryImpl) Create(ctx context.Context, creator string, contestname string) (string, error) {
+	newContestRule := domain.ContestRule{
+		ScoringType:                     domain.ICPC, // defaults to ICPC
+		PenaltyMinutes:                  0,
+		FreezeStartTime:                 time.Now(),
+		FreezeTime:                      0,
+		MaxAllowedSubmissionsPerProblem: 0,
+	}
 	newContest := domain.Contest{
-		Name:        "",
+		Name:        contestname,
 		Description: "",
 
 		Authors:     []string{},
@@ -39,21 +53,14 @@ func (cr *ContestRepositoryImpl) Create(ctx context.Context, creator string) (st
 		Testers:     []string{},
 		Contestants: []domain.Contestant{},
 
-		ProblemLabels: []string{},
-		Problems:      []uint64{},
+		Problems: []domain.ContestProblem{},
 
 		ScoreboardVisibility: domain.ScoreboardHidden,
 
-		StartTime:   time.Now(),
-		EndTime:     time.Now(),
-		ScoringType: domain.ICPC, // defaults to ICPC
-		ICPCRules: domain.ICPCRule{
-			PenaltyMinutes:  0,
-			FreezeStartTime: time.Now(),
-		},
-		IOIRules: domain.IOIRule{
-			MaxAllowedSubmissionsPerProblem: -1,
-		},
+		StartTime: time.Now(),
+		EndTime:   time.Now(),
+
+		ContestRule: newContestRule,
 
 		Status:           domain.Draft,
 		FinalizeAt:       time.Now(),
@@ -84,7 +91,7 @@ func (cr *ContestRepositoryImpl) GetById(ctx context.Context, contestId string) 
 
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, repository.NoContestFound
+			return nil, contestrepo.ErrNoContestFound
 		}
 		return nil, err
 	}
@@ -92,7 +99,7 @@ func (cr *ContestRepositoryImpl) GetById(ctx context.Context, contestId string) 
 	return &contest, nil
 }
 
-func (cr *ContestRepositoryImpl) AddPeople(ctx context.Context, contestId string, peopleType string, username string) error {
+func (cr *ContestRepositoryImpl) AddPeople(ctx context.Context, contestId string, peopleType contestrepo.PeopleType, username string) error {
 	if !slices.Contains(contestrepo.ContestPeopple, peopleType) {
 		return fmt.Errorf("invalid peopleType")
 	}
@@ -134,7 +141,7 @@ func (cr *ContestRepositoryImpl) AddPeople(ctx context.Context, contestId string
 	_, err = cr.collection.UpdateOne(
 		ctx,
 		bson.M{"_id": cId},
-		bson.M{"$push": bson.M{peopleType: data}},
+		bson.M{"$push": bson.M{string(peopleType): data}},
 	)
 	if err != nil {
 		return err
@@ -145,7 +152,7 @@ func (cr *ContestRepositoryImpl) AddPeople(ctx context.Context, contestId string
 	return nil
 }
 
-func (cr *ContestRepositoryImpl) RemovePeople(ctx context.Context, contestId string, peopleType string, username string) error {
+func (cr *ContestRepositoryImpl) RemovePeople(ctx context.Context, contestId string, peopleType contestrepo.PeopleType, username string) error {
 	if !slices.Contains(contestrepo.ContestPeopple, peopleType) {
 		return fmt.Errorf("invalid peopleType")
 	}
@@ -162,19 +169,19 @@ func (cr *ContestRepositoryImpl) RemovePeople(ctx context.Context, contestId str
 
 	// Check if already exists
 	if peopleType == contestrepo.Contestant && !contest.ContestantExist(username) {
-		return fmt.Errorf("contestant %d is not in contest %s", username, contestId)
+		return fmt.Errorf("contestant %s is not in contest %s", username, contestId)
 	}
 	if peopleType == contestrepo.Author && !slices.Contains(contest.Authors, username) {
-		return fmt.Errorf("author %d is not in contest %s", username, contestId)
+		return fmt.Errorf("author %s is not in contest %s", username, contestId)
 	}
 	if peopleType == contestrepo.Admin && !slices.Contains(contest.Admins, username) {
-		return fmt.Errorf("curator %d is not in contest %s", username, contestId)
+		return fmt.Errorf("curator %s is not in contest %s", username, contestId)
 	}
 	if peopleType == contestrepo.Tester && !slices.Contains(contest.Testers, username) {
-		return fmt.Errorf("tester %d is not in contest %s", username, contestId)
+		return fmt.Errorf("tester %s is not in contest %s", username, contestId)
 	}
 
-	var data interface{}
+	var data any
 	if peopleType == contestrepo.Contestant {
 		// For pulling, we might need to match by UserID if it's an object
 		// But $pull with object should work if it matches exactly.
@@ -195,7 +202,7 @@ func (cr *ContestRepositoryImpl) RemovePeople(ctx context.Context, contestId str
 	_, err = cr.collection.UpdateOne(
 		ctx,
 		bson.M{"_id": cId},
-		bson.M{"$pull": bson.M{peopleType: data}},
+		bson.M{"$pull": bson.M{string(peopleType): data}},
 	)
 	if err != nil {
 		return err
@@ -203,5 +210,35 @@ func (cr *ContestRepositoryImpl) RemovePeople(ctx context.Context, contestId str
 
 	log.Info().Msgf("removed user %v from group %s of contest %s", data, peopleType, contestId)
 
+	return nil
+}
+
+func (cr *ContestRepositoryImpl) ReplaceOne(ctx context.Context, contestId string, updatedContest *domain.Contest) error {
+	cId, err := bson.ObjectIDFromHex(contestId)
+	if err != nil {
+		return err
+	}
+
+	_, err = cr.collection.ReplaceOne(ctx, bson.M{"_id": cId}, updatedContest)
+	if err != nil {
+		return err
+	}
+
+	log.Info().Msgf("replaced contest %s", contestId)
+	return nil
+}
+
+func (cr *ContestRepositoryImpl) UpdateOne(ctx context.Context, contestId string, updateData map[string]any) error {
+	cId, err := bson.ObjectIDFromHex(contestId)
+	if err != nil {
+		return err
+	}
+
+	_, err = cr.collection.UpdateOne(ctx, bson.M{"_id": cId}, bson.M{"$set": updateData})
+	if err != nil {
+		return err
+	}
+
+	log.Info().Msgf("updated contest %s with data %v", contestId, updateData)
 	return nil
 }
