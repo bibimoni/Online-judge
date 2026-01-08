@@ -66,8 +66,9 @@ func WithAuth(next http.Handler) http.Handler {
 		r.Header.Set("X-User-Role", res.PayLoad.Role)
 		permsJson, _ := json.Marshal(res.PayLoad.Permissions)
 		r.Header.Set("X-User-Permissions", string(permsJson))
+		r.Header.Set("X-Username", res.PayLoad.Username)
 
-		obj["username"] = res.PayLoad.Username
+		// obj["username"] = res.PayLoad.Username
 		newBytes, _ := json.Marshal(obj)
 
 		r.Body = io.NopCloser(bytes.NewReader(newBytes))

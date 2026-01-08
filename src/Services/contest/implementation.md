@@ -229,8 +229,8 @@ Rejudge is an async operation that re-runs judging for an existing set of submis
 Because it's async, the rejudge request will create a `RejudgeJob` and return a rejudge_job_id
 
 ## Implementation note
-### Body of protected route (auth)
-- Inject `username` to the body of the request before passing to the service.
+### Auth route
+- All user information will be stored in the `request context` by the auth middlware 
 ### `ingest_submission` usecase
 1. validate contest exists
 2. store/Upsert `ContestSubmission` 

@@ -48,10 +48,11 @@ func toRejudgeSubmissionType(c *gin.Context) (*usecase.RejudgeSubmissionInput, e
 func toSubmitSubmissionType(c *gin.Context) (*usecase.SubmitSubmissionInput, error) {
 	log := config.GetLogger()
 	var input usecase.SubmitSubmissionInput
-	if err := c.BindJSON(&input); err != nil {
+	if err := c.ShouldBindJSON(&input); err != nil {
 		log.Error().Msgf("%s", err.Error())
 		return nil, fmt.Errorf("invalid Request Body")
 	}
+	input.Username = c.GetHeader("X-Username")
 
 	// Guard submission type, i think all the validation should happen here
 	// as long as it doesn't require any service / repository

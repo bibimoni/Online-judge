@@ -2,6 +2,7 @@ package contestcontroller
 
 import (
 	"contest/src/common"
+	"contest/src/controller"
 	"contest/src/infrastructure/config"
 	"contest/src/usecase/contest"
 	"fmt"
@@ -41,8 +42,14 @@ func toPatchContestInput(c *gin.Context) (*contestusecase.PatchContestInput, err
 	if err := c.ShouldBindJSON(&req); err != nil {
 		return nil, err
 	}
+
+	rc, ok := controller.GetContextRequest(c)
+	if !ok {
+		return nil, common.NewForbiddenError("unauthorized")
+	}
 	req.ContestId = contestId
-	req.UserRole = c.GetHeader("X-User-Role")
+	req.UserRole = rc.Role
+	req.Username = rc.Username
 
 	config.GetLogger().Debug().Msgf("PatchContestInput: %+v", req)
 	validate := validator.New()
@@ -60,17 +67,21 @@ func toCreateContestInput(c *gin.Context) (*contestusecase.CreateContestInput, e
 		return nil, fmt.Errorf("contest creator and contest name is required")
 	}
 
-	var req struct {
-		Username string `json:"username" validate:"min=6"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		return nil, common.NewForbiddenError("No user found in request")
-	}
+	// var req struct {
+	// 	Username string `json:"username" validate:"min=6"`
+	// }
+	// if err := c.ShouldBindJSON(&req); err != nil {
+	// 	return nil, common.NewForbiddenError("No user found in request")
+	// }
 
+	rc, ok := controller.GetContextRequest(c)
+	if !ok {
+		return nil, common.NewForbiddenError("unauthorized")
+	}
 	return &contestusecase.CreateContestInput{
-		Username: req.Username,
+		Username: rc.Username,
 		Name:     contestName,
-		UserRole: c.GetHeader("X-User-Role"),
+		UserRole: rc.Role,
 	}, nil
 }
 
@@ -90,7 +101,12 @@ func toEditContestInput(c *gin.Context) (*contestusecase.EditContestInput, error
 		return nil, err
 	}
 
+	rc, ok := controller.GetContextRequest(c)
+	if !ok {
+		return nil, common.NewForbiddenError("unauthorized")
+	}
 	req.EditType = contestusecase.EditType(editType)
-	req.UserRole = c.GetHeader("X-User-Role")
+	req.UserRole = rc.Role
+	req.Username = rc.Username
 	return &req, nil
 }

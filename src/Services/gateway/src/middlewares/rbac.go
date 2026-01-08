@@ -81,6 +81,7 @@ func WithPermission(permission string) func(http.Handler) http.Handler {
 
 			permsJson, _ := json.Marshal(res.PayLoad.User.Permissions)
 			r.Header.Set("X-User-Permissions", string(permsJson))
+			r.Header.Set("X-Username", res.PayLoad.User.Username)
 
 			org, err := io.ReadAll(r.Body)
 			if err != nil {
@@ -98,8 +99,8 @@ func WithPermission(permission string) func(http.Handler) http.Handler {
 				obj = make(map[string]any)
 			}
 
-			obj["username"] = res.PayLoad.User.Username
-			config.GetLogger().Debug().Msgf("Modified Body: %v", obj)
+			// obj["username"] = res.PayLoad.User.Username
+			// config.GetLogger().Debug().Msgf("Modified Body: %v", obj)
 			newBodyBytes, _ := json.Marshal(obj)
 
 			r.Body = io.NopCloser(bytes.NewBuffer(newBodyBytes))
