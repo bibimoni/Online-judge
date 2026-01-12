@@ -35,6 +35,37 @@ func Patch(contestInteractor contestusecase.ContestInteractor) gin.HandlerFunc {
 	)
 }
 
+func ManageProblems(contestInteractor contestusecase.ContestInteractor) gin.HandlerFunc {
+	return common.InvokeUseCase(
+		toManageProblemsInput,
+		contestInteractor.ManageContestProblems,
+		common.WriteSuccessOutput[contestusecase.ManageContestProblemsOutput],
+	)
+}
+
+func toManageProblemsInput(c *gin.Context) (*contestusecase.ManageContestProblemsInput, error) {
+	contestId := c.Param("contest_id")
+	var req contestusecase.ManageContestProblemsInput
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		return nil, err
+	}
+
+	rc, ok := controller.GetContextRequest(c)
+	if !ok {
+		return nil, common.NewForbiddenError("unauthorized")
+	}
+	req.ContestId = contestId
+	req.Username = rc.Username
+
+	validate := validator.New()
+	if err := validate.Struct(req); err != nil {
+		return nil, err
+	}
+
+	return &req, nil
+}
+
 func toPatchContestInput(c *gin.Context) (*contestusecase.PatchContestInput, error) {
 	contestId := c.Param("contest_id")
 	var req contestusecase.PatchContestInput

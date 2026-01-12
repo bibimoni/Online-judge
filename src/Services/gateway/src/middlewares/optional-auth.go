@@ -7,26 +7,21 @@ import (
 	// "io"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/bibimoni/Online-judge/gateway/src/common"
 	"github.com/bibimoni/Online-judge/gateway/src/infrastructure/config"
 )
 
-type AuthResponseBody struct {
-	Username    string   `json:"username,omitempty"`
-	Id          int      `json:"id,omitempty"`
-	Role        string   `json:"contestant,omitempty"`
-	Permissions []string `json:"permissions,omitempty"`
-}
-
-func WithAuth(next http.Handler) http.Handler {
+func OptionalAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authURL := config.Load().Endpoints.Auth
 		config.GetLogger().Debug().Msgf("auth url: %s", authURL)
 
-		// token := extractBearer(r.Header.Get("Authorization"))
+		if r.Header.Get("Authorization") == "" {
+			next.ServeHTTP(w, r)
+		}
+
 		res, err := common.SendRequest[AuthResponseBody](r.Context(), common.APIRequest{
 			Method:  "POST",
 			URL:     fmt.Sprintf("%s/auth/validate", authURL),
@@ -68,9 +63,9 @@ func WithAuth(next http.Handler) http.Handler {
 		r.Header.Set("X-User-Permissions", string(permsJson))
 		r.Header.Set("X-Username", res.PayLoad.Username)
 
-		// obj["username"] = res.PayLoad.Username
+		// // obj["username"] = res.PayLoad.Username
 		// newBytes, _ := json.Marshal(obj)
-
+		//
 		// r.Body = io.NopCloser(bytes.NewReader(newBytes))
 		//
 		// r.ContentLength = int64(len(newBytes))
@@ -79,9 +74,4 @@ func WithAuth(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
-}
-
-func extractBearer(header string) string {
-	const prefix = "Bearer "
-	return strings.TrimPrefix(header, prefix)
 }

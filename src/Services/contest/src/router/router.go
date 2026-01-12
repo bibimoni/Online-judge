@@ -17,6 +17,7 @@ func RegisterRouter(group *gin.RouterGroup, appContext components.AppContext) {
 		auth.Use(middleware.RequireAuth())
 		auth.POST("/create", contestcontroller.Create(contestInteractor))
 		auth.POST("/edit", contestcontroller.Edit(contestInteractor))
-		auth.PATCH("/patch/:contest_id", contestcontroller.Patch(contestInteractor))
+		auth.PATCH("/:contest_id/patch", contestcontroller.Patch(contestInteractor))
+		auth.PUT("/:contest_id/manage/problems", contestcontroller.ManageProblems(contestInteractor))
 	}
 }

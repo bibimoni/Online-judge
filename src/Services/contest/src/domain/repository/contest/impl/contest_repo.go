@@ -242,3 +242,26 @@ func (cr *ContestRepositoryImpl) UpdateOne(ctx context.Context, contestId string
 	log.Info().Msgf("updated contest %s with data %v", contestId, updateData)
 	return nil
 }
+
+func (cr *ContestRepositoryImpl) UpdateProblems(
+	ctx context.Context,
+	contestId string,
+	problems []*domain.ContestProblem,
+) error {
+	cId, err := bson.ObjectIDFromHex(contestId)
+	if err != nil {
+		return err
+	}
+
+	_, err = cr.collection.UpdateOne(
+		ctx,
+		bson.M{"_id": cId},
+		bson.M{"$set": bson.M{"problems": problems}},
+	)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

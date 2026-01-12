@@ -16,6 +16,7 @@ type ContestInteractor interface {
 	EditContest(ctx context.Context, input *EditContestInput) (*EditContestOutput, error)
 	CreateContest(ctx context.Context, input *CreateContestInput) (*CreateContestOutput, error)
 	PatchContest(ctx context.Context, input *PatchContestInput) (*PatchContestOutput, error)
+	ManageContestProblems(ctx context.Context, input *ManageContestProblemsInput) (*ManageContestProblemsOutput, error)
 }
 
 type (
@@ -65,6 +66,17 @@ type (
 		FreezeStartTime                 *time.Time          `json:"freeze_start_time"`
 		FreezeTime                      *time.Duration      `json:"freeze_time,omitempty"`
 		MaxAllowedSubmissionsPerProblem *int16              `json:"max_allowed_submissions_per_problem,omitempty"`
+	}
+
+	ManageContestProblemsInput struct {
+		ContestId  string   `json:"contest_id,omitempty"`
+		Username   string   `json:"username,omitempty"`
+		ProblemIds []string `json:"problem_ids,omitempty"`
+		ShortNames []string `json:"short_names,omitempty"`
+	}
+
+	ManageContestProblemsOutput struct {
+		common.StatusOK
 	}
 )
 

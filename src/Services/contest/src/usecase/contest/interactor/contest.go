@@ -4,6 +4,7 @@ import (
 	"contest/src/common"
 	domain "contest/src/domain/entity"
 	"contest/src/domain/repository/contest"
+	contestservice "contest/src/service/contest"
 	contestusecase "contest/src/usecase/contest"
 	"context"
 	"fmt"
@@ -11,12 +12,17 @@ import (
 )
 
 type ContestInteractor struct {
-	contestRepo contestrepo.ContestRepository
+	contestRepo    contestrepo.ContestRepository
+	contestService contestservice.ContestService
 }
 
-func NewContestInteractor(contestRepo contestrepo.ContestRepository) *ContestInteractor {
+func NewContestInteractor(
+	contestRepo contestrepo.ContestRepository,
+	contestService contestservice.ContestService,
+) *ContestInteractor {
 	return &ContestInteractor{
-		contestRepo: contestRepo,
+		contestRepo:    contestRepo,
+		contestService: contestService,
 	}
 }
 
@@ -24,7 +30,7 @@ func (i *ContestInteractor) CreateContest(ctx context.Context, input *contestuse
 	if !i.contestRepo.CanCreateContest(ctx, input.UserRole) {
 		return nil, common.NewForbiddenError("you don't have permission to create contest")
 	}
-	contestId, err := i.contestRepo.Create(ctx, input.Username, input.Name)
+	contestId, err := i.contestService.Create(ctx, input.Username, input.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +70,7 @@ func (i *ContestInteractor) handleAddPeople(ctx context.Context, input *contestu
 }
 
 func (i *ContestInteractor) handleRemovePeople(ctx context.Context, input *contestusecase.EditContestInput) (*contestusecase.EditContestOutput, error) {
-	err := i.contestRepo.RemovePeople(ctx, input.ContestId, input.PeopleType, input.Target)
+	err := i.contestService.RemovePeople(ctx, input.ContestId, input.PeopleType, input.Target)
 	if err != nil {
 		return nil, err
 	}
@@ -168,4 +174,15 @@ func (i *ContestInteractor) PatchContest(
 	}
 
 	return &contestusecase.PatchContestOutput{StatusOK: common.StatusOK{Status: "ok"}}, nil
+}
+
+func (i *ContestInteractor) ManageContestProblems(
+	ctx context.Context,
+	input *contestusecase.ManageContestProblemsInput,
+) (*contestusecase.ManageContestProblemsOutput, error) {
+	err := i.contestService.ChangeProblems(ctx, input.ContestId, input.ProblemIds, input.ShortNames)
+	if err != nil {
+		return nil, err
+	}
+	return &contestusecase.ManageContestProblemsOutput{StatusOK: common.StatusOK{Status: "ok"}}, nil
 }

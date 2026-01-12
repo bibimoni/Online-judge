@@ -25,6 +25,8 @@ type Config struct {
 		ReadTimeout  time.Duration
 		WriteTimeout time.Duration
 	}
+	ProblemServerAddr string
+	JudgeServerAddr   string
 }
 
 func Load() (*Config, error) {
@@ -45,6 +47,9 @@ func Load() (*Config, error) {
 	cfg.Server.Host = getEnv("CONTEST_HOST", "0.0.0.0")
 	cfg.Server.ReadTimeout = time.Second * 15
 	cfg.Server.WriteTimeout = time.Second * 15
+
+	cfg.ProblemServerAddr = getEnv("PROBLEM_ENDPOINT", "http://problem"+":"+getEnv("PROBLEM_PORT", "3000")) + "/problem/"
+	cfg.JudgeServerAddr = getEnv("SUBMISSION_ENDPOINT", "http://submission-judge"+":"+getEnv("SUBMISSION_PORT", "8000")) + "/api/v1/submission/"
 
 	return cfg, nil
 }
