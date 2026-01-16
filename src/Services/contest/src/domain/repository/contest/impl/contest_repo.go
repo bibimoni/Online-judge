@@ -65,6 +65,8 @@ func (cr *ContestRepositoryImpl) Create(ctx context.Context, creator string, con
 		Status:           domain.Draft,
 		FinalizeAt:       time.Now(),
 		RejudgeWindowEnd: time.Now(),
+
+		Visibility: domain.VisibilityPrivate,
 	}
 
 	result, err := cr.collection.InsertOne(ctx, newContest)
@@ -264,4 +266,72 @@ func (cr *ContestRepositoryImpl) UpdateProblems(
 	}
 
 	return nil
+}
+
+func (cr *ContestRepositoryImpl) ListAllPublicContests(ctx context.Context) ([]*domain.Contest, error) {
+	cursor, err := cr.collection.Find(ctx, bson.M{
+		"visibility": domain.VisibilityPublic,
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var contests = make([]*domain.Contest, 0)
+	for cursor.Next(ctx) {
+		var contest domain.Contest
+		if err := cursor.Decode(&contest); err != nil {
+			return nil, err
+		}
+		contests = append(contests, &contest)
+	}
+
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+
+	return contests, nil
+}
+
+// ListAllContestsWithAuth lists all public contest,
+// and private contests where user is admin/author/tester/contestant or if user role is admin (list all)
+func (cr *ContestRepositoryImpl) ListAllContestsWithAuth(ctx context.Context, username, role string) ([]*domain.Contest, error) {
+	filter := bson.M{
+		"$or": []bson.M{
+			{"visibility": domain.VisibilityPublic},
+		},
+	}
+
+	if role == "admin" {
+		// admin can see all contests
+		filter = bson.M{}
+	} else {
+		filter["$or"] = append(filter["$or"].([]bson.M),
+			bson.M{"admins": username},
+			bson.M{"authors": username},
+			bson.M{"testers": username},
+			bson.M{"contestants.username": username},
+		)
+	}
+
+	cursor, err := cr.collection.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var contests = make([]*domain.Contest, 0)
+	for cursor.Next(ctx) {
+		var contest domain.Contest
+		if err := cursor.Decode(&contest); err != nil {
+			return nil, err
+		}
+		contests = append(contests, &contest)
+	}
+
+	if err := cursor.Err(); err != nil {
+		return nil, err
+	}
+
+	return contests, nil
 }

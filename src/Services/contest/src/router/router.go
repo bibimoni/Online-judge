@@ -12,6 +12,12 @@ func RegisterRouter(group *gin.RouterGroup, appContext components.AppContext) {
 	contestInteractor := appContext.GetContestInteractor()
 	contest := group.Group("/contest")
 	{
+		auth := contest.Group("")
+		auth.Use(middleware.OptionalAuth())
+		auth.GET("", contestcontroller.GetAllContest(contestInteractor))
+		auth.GET("/:contest_id", contestcontroller.GetContest(contestInteractor))
+	}
+	{
 		// auth route for contest
 		auth := contest.Group("")
 		auth.Use(middleware.RequireAuth())

@@ -17,9 +17,26 @@ type ContestInteractor interface {
 	CreateContest(ctx context.Context, input *CreateContestInput) (*CreateContestOutput, error)
 	PatchContest(ctx context.Context, input *PatchContestInput) (*PatchContestOutput, error)
 	ManageContestProblems(ctx context.Context, input *ManageContestProblemsInput) (*ManageContestProblemsOutput, error)
+	GetContestById(ctx context.Context, input *GetContestByIdInput) (*GetContestByIdOutput, error)
+	GetAllContests(ctx context.Context, input *GetContestsInput) (*GetContestsOutput, error)
 }
 
 type (
+	GetContestsOutput struct {
+		Contests []*domain.Contest `json:"contests"`
+	}
+	GetContestByIdOutput struct {
+		Contest *domain.Contest `json:"contest"`
+	}
+	GetContestByIdInput struct {
+		ContestId string
+		GetContestsInput
+	}
+	GetContestsInput struct {
+		Username      string
+		Role          string
+		Authenticated bool
+	}
 	EditContestInput struct {
 		EditType   EditType               `json:"_"` // From Query Param
 		ContestId  string                 `json:"contest_id" validate:"required"`

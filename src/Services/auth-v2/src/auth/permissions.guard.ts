@@ -33,7 +33,7 @@ export class PermissionsGuard implements CanActivate {
         return requiredPermissions.every(permission => payload.permissions.includes(permission));
       }
 
-      const userPermissions = await this.authService.getPermissions(payload.id);
+      const userPermissions = await this.authService.getPermissions(payload.id, payload.username);
       return requiredPermissions.every(permission => userPermissions.permissions.includes(permission));
 
     } catch (error) {

@@ -18,6 +18,9 @@ type ContestRepository interface {
 	AddPeople(ctx context.Context, contestId string, peopleType PeopleType, username string) error
 	RemovePeople(ctx context.Context, contestId string, peopleType PeopleType, username string) error
 	UpdateProblems(ctx context.Context, contestId string, problems []*domain.ContestProblem) error
+
+	ListAllContestsWithAuth(ctx context.Context, username, role string) ([]*domain.Contest, error)
+	ListAllPublicContests(ctx context.Context) ([]*domain.Contest, error)
 }
 
 var ErrNoContestFound = errors.New("no contest found")

@@ -57,8 +57,6 @@ To support rejudge/skip reliably we store the contest view of the submission.
 - `Rank`
 - `Performance` (optional)
 
-### RejudgeJob
-- `ContestID` (reference to Contest)
 - `SubmissionIDs` (string[])
 - `ProblemID` (reference to Problem)
 - `RequestedBy` (string)

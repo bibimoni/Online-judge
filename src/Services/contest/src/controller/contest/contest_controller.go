@@ -11,6 +11,22 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+func GetAllContest(contestInteractor contestusecase.ContestInteractor) gin.HandlerFunc {
+	return common.InvokeUseCase(
+		toGetAllContestInput,
+		contestInteractor.GetAllContests,
+		common.WriteSuccessOutput[contestusecase.GetContestsOutput],
+	)
+}
+
+func GetContest(contestInteractor contestusecase.ContestInteractor) gin.HandlerFunc {
+	return common.InvokeUseCase(
+		toGetContestInput,
+		contestInteractor.GetContestById,
+		common.WriteSuccessOutput[contestusecase.GetContestByIdOutput],
+	)
+}
+
 func Create(contestInteractor contestusecase.ContestInteractor) gin.HandlerFunc {
 	return common.InvokeUseCase(
 		toCreateContestInput,
@@ -41,6 +57,41 @@ func ManageProblems(contestInteractor contestusecase.ContestInteractor) gin.Hand
 		contestInteractor.ManageContestProblems,
 		common.WriteSuccessOutput[contestusecase.ManageContestProblemsOutput],
 	)
+}
+
+func toGetAllContestInput(c *gin.Context) (*contestusecase.GetContestsInput, error) {
+	rc, ok := controller.GetContextRequest(c)
+	if !ok {
+		return &contestusecase.GetContestsInput{
+			Authenticated: false,
+		}, nil
+	}
+	return &contestusecase.GetContestsInput{
+		Username:      rc.Username,
+		Role:          rc.Role,
+		Authenticated: true,
+	}, nil
+}
+
+func toGetContestInput(c *gin.Context) (*contestusecase.GetContestByIdInput, error) {
+	contestId := c.Param("contest_id")
+	rc, ok := controller.GetContextRequest(c)
+	if !ok {
+		return &contestusecase.GetContestByIdInput{
+			ContestId: contestId,
+			GetContestsInput: contestusecase.GetContestsInput{
+				Authenticated: false,
+			},
+		}, nil
+	}
+	return &contestusecase.GetContestByIdInput{
+		ContestId: contestId,
+		GetContestsInput: contestusecase.GetContestsInput{
+			Username:      rc.Username,
+			Role:          rc.Role,
+			Authenticated: true,
+		},
+	}, nil
 }
 
 func toManageProblemsInput(c *gin.Context) (*contestusecase.ManageContestProblemsInput, error) {

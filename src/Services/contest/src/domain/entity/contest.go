@@ -45,10 +45,18 @@ type Contest struct {
 
 	ContestRule ContestRule `bson:"contest_rule" json:"contest_rule"`
 
-	Status           ContestStatus `bson:"status" json:"status,omitempty"`
-	FinalizeAt       time.Time     `bson:"finalize_at" json:"finalize_at"`
-	RejudgeWindowEnd time.Time     `bson:"rejudge_window_end" json:"rejudge_window_end"`
+	Status           ContestStatus     `bson:"status" json:"status,omitempty"`
+	FinalizeAt       time.Time         `bson:"finalize_at" json:"finalize_at"`
+	RejudgeWindowEnd time.Time         `bson:"rejudge_window_end" json:"rejudge_window_end"`
+	Visibility       ContestVisibility `bson:"visibility" json:"visibility,omitempty"`
 }
+
+type ContestVisibility string
+
+const (
+	VisibilityPrivate ContestVisibility = "HIDDEN"
+	VisibilityPublic  ContestVisibility = "PUBLIC"
+)
 
 type ContestStatus string
 
@@ -88,6 +96,21 @@ func (contest *Contest) clean() error {
 	}
 
 	return nil
+}
+
+func (contest *Contest) CanViewContest(username, role string) bool {
+	if contest.Visibility == VisibilityPublic {
+		return true
+	}
+
+	if slices.Contains(contest.Admins, username) ||
+		slices.Contains(contest.Testers, username) ||
+		slices.Contains(contest.Authors, username) ||
+		contest.ContestantExist(username) ||
+		role == common.AdminRole {
+		return true
+	}
+	return false
 }
 
 func (contest *Contest) hasStarted() bool {

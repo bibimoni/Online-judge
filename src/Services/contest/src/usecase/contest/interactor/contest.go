@@ -4,6 +4,7 @@ import (
 	"contest/src/common"
 	domain "contest/src/domain/entity"
 	"contest/src/domain/repository/contest"
+	"contest/src/infrastructure/config"
 	contestservice "contest/src/service/contest"
 	contestusecase "contest/src/usecase/contest"
 	"context"
@@ -185,4 +186,43 @@ func (i *ContestInteractor) ManageContestProblems(
 		return nil, err
 	}
 	return &contestusecase.ManageContestProblemsOutput{StatusOK: common.StatusOK{Status: "ok"}}, nil
+}
+
+func (i *ContestInteractor) GetContestById(ctx context.Context, input *contestusecase.GetContestByIdInput) (*contestusecase.GetContestByIdOutput, error) {
+	contest, err := i.contestRepo.GetById(ctx, input.ContestId)
+	if contest.Visibility == domain.VisibilityPublic {
+		return &contestusecase.GetContestByIdOutput{
+			Contest: contest,
+		}, err
+	}
+	if !input.Authenticated {
+		return nil, common.NewForbiddenError("you must be logged in to access this contest")
+	}
+
+	if contest.CanViewContest(input.Username, input.Role) {
+		return &contestusecase.GetContestByIdOutput{
+			Contest: contest,
+		}, err
+	}
+
+	return nil, common.NewForbiddenError("you don't have permission to access this contest")
+}
+func (i *ContestInteractor) GetAllContests(ctx context.Context, input *contestusecase.GetContestsInput) (*contestusecase.GetContestsOutput, error) {
+	config.GetLogger().Info().Msgf("GetAllContests called with input: %+v", input)
+	if !input.Authenticated {
+		contests, err := i.contestRepo.ListAllPublicContests(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return &contestusecase.GetContestsOutput{
+			Contests: contests,
+		}, nil
+	}
+	contests, err := i.contestRepo.ListAllContestsWithAuth(ctx, input.Username, input.Role)
+	if err != nil {
+		return nil, err
+	}
+	return &contestusecase.GetContestsOutput{
+		Contests: contests,
+	}, nil
 }
