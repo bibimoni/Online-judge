@@ -3,7 +3,8 @@
 ## API Schema
 ```
 - POST /problem/add?problemId=...
-- GET /problem/get/${problemId}/{static files}
+- GET /problem/latest-version?problemId=...
+- GET /problem/get/${problemId}/${version}/{static files}
 - GET /problem/all
 Return:
 {
