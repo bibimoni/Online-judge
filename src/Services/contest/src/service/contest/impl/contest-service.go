@@ -6,8 +6,10 @@ import (
 	"contest/src/infrastructure/config"
 	contestservice "contest/src/service/contest"
 	service "contest/src/service/contest"
+	contestserviceutils "contest/src/service/contest/utils"
 	problemservice "contest/src/service/problem"
 	"context"
+	"errors"
 	"fmt"
 
 	"golang.org/x/sync/errgroup"
@@ -32,8 +34,8 @@ func (s *ContestServiceImpl) Create(ctx context.Context, author, contestname str
 	return s.contestRepo.Create(ctx, author, contestname)
 }
 
-func (s *ContestServiceImpl) AddPeople(ctx context.Context, contestId string, peopleType contestrepo.PeopleType, username string) error {
-	return s.contestRepo.AddPeople(ctx, contestId, peopleType, username)
+func (s *ContestServiceImpl) AddPeople(ctx context.Context, contestId string, peopleType contestrepo.PeopleType, username string, paricipantType domain.ParticipantType) error {
+	return s.contestRepo.AddPeople(ctx, contestId, peopleType, username, paricipantType)
 }
 
 func (s *ContestServiceImpl) RemovePeople(ctx context.Context, contestId string, peopleType contestrepo.PeopleType, username string) error {
@@ -41,7 +43,9 @@ func (s *ContestServiceImpl) RemovePeople(ctx context.Context, contestId string,
 }
 
 func (s *ContestServiceImpl) ChangeProblems(ctx context.Context, contestId string, problemIds []string, shortNames []string) error {
-	// chain of problems
+	if contestserviceutils.CheckDuplicateItem(shortNames) {
+		return errors.New("shortNames contains duplicates")
+	}
 	if len(problemIds) != len(shortNames) {
 		return fmt.Errorf("length of problemIds and shortNames must be equal")
 	}

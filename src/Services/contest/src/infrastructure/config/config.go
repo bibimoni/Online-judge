@@ -27,6 +27,7 @@ type Config struct {
 	}
 	ProblemServerAddr string
 	JudgeServerAddr   string
+	InternalSecret string
 }
 
 func Load() (*Config, error) {
@@ -50,6 +51,8 @@ func Load() (*Config, error) {
 
 	cfg.ProblemServerAddr = getEnv("PROBLEM_ENDPOINT", "http://problem"+":"+getEnv("PROBLEM_PORT", "3000")) + "/problem/"
 	cfg.JudgeServerAddr = getEnv("SUBMISSION_ENDPOINT", "http://submission-judge"+":"+getEnv("SUBMISSION_PORT", "8000")) + "/api/v1/submission/"
+
+	cfg.InternalSecret = getEnv("INTERNAL_SECRET", "internal-secret")
 
 	return cfg, nil
 }

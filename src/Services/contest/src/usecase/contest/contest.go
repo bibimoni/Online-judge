@@ -38,12 +38,13 @@ type (
 		Authenticated bool
 	}
 	EditContestInput struct {
-		EditType   EditType               `json:"_"` // From Query Param
-		ContestId  string                 `json:"contest_id" validate:"required"`
-		PeopleType contestrepo.PeopleType `json:"people_type" validate:"required"`
-		Target     string                 `json:"target" validate:"required"`
-		Username   string                 `json:"username" validate:"required"` // Auto injected from gateway
-		UserRole   string                 `json:"user_role,omitempty"`
+		EditType        EditType               `json:"_"` // From Query Param
+		ContestId       string                 `json:"contest_id" validate:"required"`
+		ParticipantType domain.ParticipantType `json:"participant_type,omitempty"` // only if peopleType is Contestant
+		PeopleType      contestrepo.PeopleType `json:"people_type" validate:"required"`
+		Target          string                 `json:"target" validate:"required"`
+		Username        string                 `json:"username" validate:"required"` // Auto injected from gateway
+		UserRole        string                 `json:"user_role,omitempty"`
 	}
 
 	EditContestOutput struct {

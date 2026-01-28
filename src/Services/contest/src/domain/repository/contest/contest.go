@@ -15,9 +15,11 @@ type ContestRepository interface {
 
 	// AddContestant(contestId string, userId uint64) error
 
-	AddPeople(ctx context.Context, contestId string, peopleType PeopleType, username string) error
+	AddPeople(ctx context.Context, contestId string, peopleType PeopleType, username string, participantType domain.ParticipantType) error
 	RemovePeople(ctx context.Context, contestId string, peopleType PeopleType, username string) error
+
 	UpdateProblems(ctx context.Context, contestId string, problems []*domain.ContestProblem) error
+	GetProblemByLabels(ctx context.Context, contestId string, problemLabels []string) ([]*domain.ContestProblem, error)
 
 	ListAllContestsWithAuth(ctx context.Context, username, role string) ([]*domain.Contest, error)
 	ListAllPublicContests(ctx context.Context) ([]*domain.Contest, error)

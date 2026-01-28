@@ -86,10 +86,9 @@ func (si *SubmissionInteractor) SubmitSubmission(ctx context.Context, input *use
 	}
 
 	log.Info().Msgf("Enqueue submission, id: %s. With eval id: %s", submissionId, evalId)
-	si.judgeService.Judge(ctx, &req, problemInfo)
+	err = si.judgeService.Judge(ctx, &req, problemInfo)
 
 	return &usecase.SubmitSubmissionResponse{
-		// ID: codeId,
 		Message: "Submit successfully!",
 		ID:      submissionId,
 	}, nil
@@ -167,5 +166,61 @@ func (si *SubmissionInteractor) GetProblemSubmission(ctx context.Context, input 
 
 	return &usecase.GetProblemSubmissionOutput{
 		Submissions: problemSubmissions,
+	}, nil
+}
+
+func (si *SubmissionInteractor) InternalContestSubmitSubmission(ctx context.Context, input *usecase.InternalContestSubmitSubmissionInput) (*usecase.SubmitSubmissionResponse,  error) {
+	log := config.GetLogger()
+	log.Info().Msgf("User %s submitted a solution in %s, for problem with problem id: %s", input.Username, input.LanguageId, input.ProblemId)
+
+	problemInfo, err := si.problemService.Get(ctx, input.ProblemId)
+	if err != nil {
+		return nil, err
+	}
+
+	params := repository.CreateSubmissionInput{
+		ProblemId: strconv.FormatInt(problemInfo.ProblemId, 10),
+		Username:  input.Username,
+		Type:      input.SubmissionType,
+	}
+	submissionId, err := si.submissionRepo.CreateSubmissionWithTimestamp(ctx, params, input.SubmitAt)
+	if err != nil {
+		log.Debug().Msgf("error happened when trying to create new submission: %v", err)
+		return nil, err
+	}
+
+	_, err = si.sourcecodeRepo.CreateSourcecode(ctx, input.Code, input.LanguageId, submissionId)
+	if err != nil {
+		return nil, err
+	}
+
+	evalId, err := si.evalRepo.CreateEval(ctx, submissionId, problemInfo.TimeLimit, memory.Memory(problemInfo.MemoryLimit), problemInfo.TestNum)
+	if err != nil {
+		return nil, err
+	}
+
+	req := isolateservice.SubmissionRequest{
+		SubmissionId:   submissionId,
+		Username:       input.Username,
+		Sourcecode:     input.Code,
+		SubmissionType: input.SubmissionType,
+		ProblemId:      input.ProblemId,
+		LanguageId:     input.LanguageId,
+		EvalId:         evalId,
+	}
+
+	log.Info().Msgf("Enqueue submission, id: %s. With eval id: %s", submissionId, evalId)
+	err = si.judgeService.Judge(ctx, &req, problemInfo)
+
+	if err != nil {
+		log.Error().Msgf("InternalContestSubmitSubmission error: %v", err)
+		return nil, err
+	}
+
+	// TODO: call contest service and upsert the submission
+
+	return &usecase.SubmitSubmissionResponse{
+		Message: "Submit successfully!",
+		ID:      submissionId,
 	}, nil
 }

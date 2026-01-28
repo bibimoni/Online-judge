@@ -7,6 +7,7 @@ import (
 	"github.com/bibimoni/Online-judge/submission-judge/src/controller"
 	domain "github.com/bibimoni/Online-judge/submission-judge/src/domain/entitiy"
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 
 	"fmt"
 
@@ -14,6 +15,14 @@ import (
 	"github.com/bibimoni/Online-judge/submission-judge/src/usecase/submission"
 	"github.com/bibimoni/Online-judge/submission-judge/src/usecase/submission/interactor"
 )
+
+func HandleInternalContestSubmitSubmissionRequest(submissioninteractor *interactor.SubmissionInteractor) gin.HandlerFunc {
+	return common.InvokeUseCase(
+		toInternalContestSubmitSubmissionType,
+		submissioninteractor.InternalContestSubmitSubmission,
+		helper.WriteCreatedOutput,
+	)
+}
 
 func HandleSubmitSubmissionRequest(submissioninteractor *interactor.SubmissionInteractor) gin.HandlerFunc {
 	return common.InvokeUseCase(
@@ -29,6 +38,27 @@ func HandleRejudgeSubmissionRequest(submissioninteractor *interactor.SubmissionI
 		submissioninteractor.RejudgeSubmission,
 		helper.WriteCreatedOutput,
 	)
+}
+
+func toInternalContestSubmitSubmissionType(c *gin.Context) (*usecase.InternalContestSubmitSubmissionInput, error) {
+	var input usecase.InternalContestSubmitSubmissionInput
+	if err := c.BindJSON(&input); err != nil {
+		log.Error().Msgf("%s", err.Error())
+		return nil, fmt.Errorf("invalid Request Body")
+	}
+
+	secretHeader := c.GetHeader("X-Internal-Secret")
+	cfg, err := config.Load()
+	if err != nil {
+		log.Error().Msgf("failed to get config: %s", err.Error())
+		return nil, fmt.Errorf("internal server error")
+	}
+	if secretHeader != cfg.InternalSecret {
+		log.Error().Msgf("invalid internal secret")
+		return nil, fmt.Errorf("forbidden")
+	}
+
+	return &input, nil
 }
 
 func toRejudgeSubmissionType(c *gin.Context) (*usecase.RejudgeSubmissionInput, error) {

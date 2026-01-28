@@ -14,9 +14,20 @@ type SubmissionUsecase interface {
 	GetSubmission(ctx context.Context, input *GetSubmissionInput) (output *GetSubmissionOutput, err error)
 	GetProblemSubmission(ctx context.Context, input *GetProblemSubmissionInput)
 	RejudgeSubmission(ctx context.Context, input *RejudgeSubmissionInput) error
+	InternalContestSubmitSubmission(ctx context.Context, input *InternalContestSubmitSubmissionInput) (output *SubmitSubmissionResponse, err error)
 }
 
 type (
+	InternalContestSubmitSubmissionInput struct {
+		ProblemId 	   string  				 `json:"problem_id,omitempty"`
+		Code           string  				 `json:"code,omitempty"`
+		Username       string                `json:"username,omitempty"`
+		ContestId      string                `json:"contest_id,omitempty"`
+		LanguageId     string                `json:"language,omitempty"`
+		SubmitAt       time.Time             `json:"submit_at"`
+		SubmissionType domain.SubmissionType `json:"submission_type,omitempty"`
+	}
+
 	SubmitSubmissionInput struct {
 		Username       string                `json:"username,omitempty"`
 		ProblemId      string                `json:"problem_id,omitempty"`

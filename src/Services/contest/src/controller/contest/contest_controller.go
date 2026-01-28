@@ -3,9 +3,12 @@ package contestcontroller
 import (
 	"contest/src/common"
 	"contest/src/controller"
+	domain "contest/src/domain/entity"
+	contestrepo "contest/src/domain/repository/contest"
 	"contest/src/infrastructure/config"
 	"contest/src/usecase/contest"
 	"fmt"
+	"slices"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -181,6 +184,10 @@ func toEditContestInput(c *gin.Context) (*contestusecase.EditContestInput, error
 	validate := validator.New()
 	if err := validate.Struct(req); err != nil {
 		return nil, err
+	}
+
+	if req.PeopleType == contestrepo.Contestant && !slices.Contains(domain.ParticipantTypes, req.ParticipantType) {
+		return nil, common.NewBadRequestError("adding contestant requires valid participant_type")
 	}
 
 	rc, ok := controller.GetContextRequest(c)

@@ -63,7 +63,7 @@ func (i *ContestInteractor) EditContest(ctx context.Context, input *contestuseca
 }
 
 func (i *ContestInteractor) handleAddPeople(ctx context.Context, input *contestusecase.EditContestInput) (*contestusecase.EditContestOutput, error) {
-	err := i.contestRepo.AddPeople(ctx, input.ContestId, input.PeopleType, input.Target)
+	err := i.contestRepo.AddPeople(ctx, input.ContestId, input.PeopleType, input.Target, input.ParticipantType)
 	if err != nil {
 		return nil, err
 	}

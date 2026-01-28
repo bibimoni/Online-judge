@@ -38,6 +38,7 @@ type Config struct {
 	CheckerBinName    string
 	InteractorBinName string
 	CrossRunJarName   string
+	InternalSecret string
 }
 
 func Load() (*Config, error) {
@@ -85,6 +86,8 @@ func Load() (*Config, error) {
 		GetLogger().Error().Err(err).Msgf("failed to get SUBMISSION_IS_MAIN_JUDGE field from .env file")
 		return nil, err
 	}
+
+	cfg.InternalSecret = getEnv("INTERNAL_SECRET", "internal-secret")
 
 	return cfg, nil
 }

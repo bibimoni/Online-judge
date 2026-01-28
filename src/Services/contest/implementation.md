@@ -254,3 +254,6 @@ Also implement a rejudge API call.
 4. `submission-judge` rejudges (by adding the submission to its queue). Update eval, submission status in its database.
 5. After each submission is rejudged, `submission-judge` calls `ingest_submission` usecase in `contest` service
 6. `ingest_submission` updates `ContestSubmission`, or in this case also `RejudgeJob` status if all submissions are done.
+
+## Current issues
+1. When a contest is running, submission-judge endpoint must not be used for contest's problems.

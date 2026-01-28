@@ -101,7 +101,7 @@ func (cr *ContestRepositoryImpl) GetById(ctx context.Context, contestId string) 
 	return &contest, nil
 }
 
-func (cr *ContestRepositoryImpl) AddPeople(ctx context.Context, contestId string, peopleType contestrepo.PeopleType, username string) error {
+func (cr *ContestRepositoryImpl) AddPeople(ctx context.Context, contestId string, peopleType contestrepo.PeopleType, username string, paricipantType domain.ParticipantType) error {
 	if !slices.Contains(contestrepo.ContestPeopple, peopleType) {
 		return fmt.Errorf("invalid peopleType")
 	}
@@ -135,7 +135,7 @@ func (cr *ContestRepositoryImpl) AddPeople(ctx context.Context, contestId string
 
 	var data any
 	if peopleType == contestrepo.Contestant {
-		data = domain.CreateContestant(username)
+		data = domain.CreateContestant(username, paricipantType)
 	} else {
 		data = username
 	}
@@ -334,4 +334,41 @@ func (cr *ContestRepositoryImpl) ListAllContestsWithAuth(ctx context.Context, us
 	}
 
 	return contests, nil
+}
+
+func (cr *ContestRepositoryImpl) GetProblemByLabels(ctx context.Context, contestId string, problemLabels []string) ([]*domain.ContestProblem, error) {
+	contestBsonId, err := bson.ObjectIDFromHex(contestId)
+	if err != nil {
+		return nil, err
+	}
+
+	var contest struct {
+		Problems []domain.ContestProblem `bson:"problems"`
+	}
+
+	err = cr.collection.FindOne(ctx, bson.M{
+		"_id": contestBsonId,
+	}).Decode(&contest)
+
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, contestrepo.ErrNoContestFound
+		}
+		return nil, err
+	}
+
+	problemIdsMap := make(map[string]*domain.ContestProblem)
+	for _, prob := range contest.Problems {
+		problemIdsMap[prob.Label] = &prob
+	}
+
+	var problems []*domain.ContestProblem
+	for _, label := range problemLabels {
+		if problem, exists := problemIdsMap[label]; exists {
+			problems = append(problems, problem)
+		} else {
+			return nil, fmt.Errorf("problem with label %s not found in contest %s", label, contestId)
+		}
+	}
+	return problems, nil
 }

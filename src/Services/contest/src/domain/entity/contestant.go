@@ -1,26 +1,42 @@
 package domain
 
-import "time"
+import (
+	"time"
+
+	"go.mongodb.org/mongo-driver/v2/bson"
+)
 
 type Contestant struct {
 	Username  string    `bson:"username"`
-	RealStart time.Time `bson:"real-start"`
+	RealStart time.Time `bson:"real_start"`
 
-	Submissions []uint64 `bson:"submissions"`
+	Submissions []bson.ObjectID `bson:"submissions"`
 
-	TotalPoints float64            `bson:"total-points"`
-	Points      map[uint64]float64 `bson:"points"` // points of each problem
+	TotalPoints     float64            `bson:"total_points"`
+	Points          map[uint64]float64 `bson:"points"` // points of each problem
+	ParticipantType ParticipantType    `bson:"participant_type"`
 }
 
-func CreateContestant(username string) Contestant {
+type ParticipantType string
+
+const (
+	RatedParticipant   ParticipantType = "RATED"
+	UnratedParticipant ParticipantType = "UNRATED"
+	VirtualParticipant ParticipantType = "VIRTUAL"
+)
+
+var ParticipantTypes = []ParticipantType{RatedParticipant, UnratedParticipant, VirtualParticipant}
+
+func CreateContestant(username string, participantType ParticipantType) Contestant {
 	newContestant := Contestant{
 		Username:  username,
 		RealStart: time.Now(),
 
-		Submissions: []uint64{},
+		Submissions: []bson.ObjectID{},
 
-		TotalPoints: 0.00,
-		Points:      map[uint64]float64{},
+		TotalPoints:     0.00,
+		Points:          map[uint64]float64{},
+		ParticipantType: participantType,
 	}
 	return newContestant
 }

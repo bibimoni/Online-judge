@@ -32,4 +32,5 @@ func RegisterRouter(group *gin.RouterGroup, appContext appctx.AppContext) {
 	submission.GET("/lang/all", transportgetlanguages.HandleGetLanguageListRequest(languageInteractor))
 	submission.POST("/internal/rejudge", transportsubmitsubmission.HandleRejudgeSubmissionRequest(submissionInteractor))
 	submission.GET("/health", transporthealth.HandleHealth())
+	submission.POST("/internal/contest/submit", transportsubmitsubmission.HandleInternalContestSubmitSubmissionRequest(submissionInteractor))
 }

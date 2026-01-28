@@ -2,6 +2,7 @@ package domain
 
 import (
 	"contest/src/common"
+	"contest/src/infrastructure/config"
 	"fmt"
 	"slices"
 	"time"
@@ -11,6 +12,8 @@ import (
 
 const (
 	ProblemCountLimit uint8 = 15
+	RegisterKey string = "register"
+	UnRegisterKey string = "unregister"
 )
 
 type ScoreboardVisibility string
@@ -38,11 +41,6 @@ type Contest struct {
 	StartTime time.Time `bson:"start_time" json:"start_time"`
 	EndTime   time.Time `bson:"end_time" json:"end_time"`
 
-	// ScoringType ScoringType `bson:"scoring_type" json:"scoring_type,omitempty"`
-
-	// ICPCRules   ICPCRule    `bson:"penalty_rules" json:"penalty_rules"`
-	// IOIRules    IOIRule     `bson:"ioi_rules" json:"ioi_rules"`
-
 	ContestRule ContestRule `bson:"contest_rule" json:"contest_rule"`
 
 	Status           ContestStatus     `bson:"status" json:"status,omitempty"`
@@ -68,12 +66,62 @@ const (
 	Ended     ContestStatus = "ENDED"
 )
 
+func (contest *Contest) CanRegister(username string, _ ParticipantType) bool {
+	// TODO: support participant type check, specificlly for virtual contest
+	if contest.ContestantExist(username) {
+		return false;
+	}
+
+	canRegisterPhase := []ContestStatus{Scheduled, Running}
+	if contest.IsContestManager(username) {
+		canRegisterPhase = append(canRegisterPhase, Draft)
+	}
+
+	if !slices.Contains(canRegisterPhase, contest.Status) {
+		return false
+	}
+
+	return true
+}
+
+func (contest *Contest) CanUnregister(username string) bool {
+	if !contest.ContestantExist(username) {
+		return false;
+	}
+	canUnregisterPhase := []ContestStatus{Scheduled}
+	if contest.IsContestManager(username) {
+		canUnregisterPhase = append(canUnregisterPhase, Draft)
+	}
+
+	if !slices.Contains(canUnregisterPhase, contest.Status) {
+		return false
+	}
+
+	return true
+}
+
+func (contest *Contest) CanSubmit(username string) bool {
+	if !contest.ContestantExist(username) {
+		return false
+	}
+	canSubmitPhase := []ContestStatus{Running, Freeze}
+	if contest.IsContestManager(username) {
+		canSubmitPhase = append(canSubmitPhase, Draft, Scheduled)
+	}
+
+	if !slices.Contains(canSubmitPhase, contest.Status) {
+		return false
+	}
+
+	return true
+}
+
 func (contest *Contest) IsAdmin(username, role string) bool {
 	return role == common.AdminRole || slices.Contains(contest.Admins, username)
 }
 
 func (contest *Contest) ContestantExist(username string) bool {
-	fmt.Printf("contestants: %v\n", contest.Contestants)
+	config.GetLogger().Debug().Msgf("contestants: %v\n", contest.Contestants)
 	for _, contestant := range contest.Contestants {
 		if contestant.Username == username {
 			return true
@@ -98,14 +146,18 @@ func (contest *Contest) clean() error {
 	return nil
 }
 
+func (contest *Contest) IsContestManager(username string) bool {
+	return slices.Contains(contest.Admins, username) ||
+		slices.Contains(contest.Testers, username) ||
+		slices.Contains(contest.Authors, username)
+}
+
 func (contest *Contest) CanViewContest(username, role string) bool {
 	if contest.Visibility == VisibilityPublic {
 		return true
 	}
 
-	if slices.Contains(contest.Admins, username) ||
-		slices.Contains(contest.Testers, username) ||
-		slices.Contains(contest.Authors, username) ||
+	if contest.IsContestManager(username) ||
 		contest.ContestantExist(username) ||
 		role == common.AdminRole {
 		return true
