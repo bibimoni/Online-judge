@@ -60,3 +60,11 @@ func NewConflictError(message string) *AppError {
 		Message:    message,
 	}
 }
+
+func NewInternalServerError(message string) *AppError {
+	return &AppError{
+		Err:        errors.New(message),
+		StatusCode: http.StatusInternalServerError,
+		Message:    message,
+	}
+}

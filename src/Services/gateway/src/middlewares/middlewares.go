@@ -4,6 +4,7 @@ import (
 	// "bytes"
 	"encoding/json"
 	"fmt"
+
 	// "io"
 	"net/http"
 	"strconv"
@@ -17,7 +18,7 @@ import (
 type AuthResponseBody struct {
 	Username    string   `json:"username,omitempty"`
 	Id          int      `json:"id,omitempty"`
-	Role        string   `json:"contestant,omitempty"`
+	Role        string   `json:"role,omitempty"`
 	Permissions []string `json:"permissions,omitempty"`
 }
 

@@ -34,7 +34,7 @@ func (ci *ContestantInteractor) Register(ctx context.Context, input *contestantu
 		return nil, err
 	}
 
-	if !contest.CanRegister(input.Username, input.RegisterType) {
+	if !contest.CanRegister(input.Username, input.RegisterType, input.Role) {
 		return nil, common.NewForbiddenError("you are not allowed to register for this contest")
 	}
 
@@ -47,13 +47,14 @@ func (ci *ContestantInteractor) Register(ctx context.Context, input *contestantu
 		Registered: true,
 	}, nil
 }
+
 func (ci *ContestantInteractor) Unregister(ctx context.Context, input *contestantusecase.UnregisterInput) (*contestantusecase.UnregisterOutput, error) {
 	contest, err := ci.contestrepo.GetById(ctx, input.ContestId)
 	if err != nil {
 		return nil, err
 	}
 
-	if !contest.CanUnregister(input.Username) {
+	if !contest.CanUnregister(input.Username, input.Role) {
 		return nil, common.NewForbiddenError("you are not allowed to unregister from this contest")
 	}
 
@@ -77,15 +78,16 @@ func (ci *ContestantInteractor) Submit(ctx context.Context, input *contestantuse
 		return nil, common.NewForbiddenError("you are not registered in this contest")
 	}
 
-	if !contest.CanSubmit(input.Username) {
+	if !contest.CanSubmit(input.Username, input.Role) {
 		return nil, common.NewForbiddenError("you are not allowed to submit in this contest")
 	}
+
 	submissionId, err := ci.contestsubmissionservice.SubmitContestSubmissionToJudge(
 		ctx,
 		input.ContestId,
 		input.ProblemLabel,
 		input.Code,
-		input.LanguageId,
+		input.Language,
 		input.Username,
 		domain.ParticipantType(input.SubmissionType),
 	)

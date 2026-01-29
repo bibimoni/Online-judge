@@ -2,10 +2,9 @@ package contestserviceimpl
 
 import (
 	domain "contest/src/domain/entity"
-	"contest/src/domain/repository/contest"
+	contestrepo "contest/src/domain/repository/contest"
 	"contest/src/infrastructure/config"
 	contestservice "contest/src/service/contest"
-	service "contest/src/service/contest"
 	contestserviceutils "contest/src/service/contest/utils"
 	problemservice "contest/src/service/problem"
 	"context"
@@ -20,14 +19,21 @@ type ContestServiceImpl struct {
 	problemService problemservice.ProblemService
 }
 
-func NewContestService(
+func NewContestServiceImpl(
 	contestRepo contestrepo.ContestRepository,
 	problemService problemservice.ProblemService,
-) service.ContestService {
+) *ContestServiceImpl {
 	return &ContestServiceImpl{
 		contestRepo:    contestRepo,
 		problemService: problemService,
 	}
+}
+
+func NewContestService(
+	contestRepo contestrepo.ContestRepository,
+	problemService problemservice.ProblemService,
+) *ContestServiceImpl {
+	return NewContestServiceImpl(contestRepo, problemService)
 }
 
 func (s *ContestServiceImpl) Create(ctx context.Context, author, contestname string) (string, error) {

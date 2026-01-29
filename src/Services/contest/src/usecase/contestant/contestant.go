@@ -13,9 +13,10 @@ type ContestantInteractor interface {
 
 type (
 	RegisterInput struct {
-		ContestId    string
+		ContestId    string                 `json:"contest_id,omitempty"`
+		RegisterType domain.ParticipantType `json:"register_type,omitempty"`
 		Username     string
-		RegisterType domain.ParticipantType
+		Role         string
 	}
 
 	RegisterOutput struct {
@@ -23,8 +24,9 @@ type (
 	}
 
 	UnregisterInput struct {
-		ContestId string
+		ContestId string `json:"contest_id,omitempty"`
 		Username  string
+		Role      string
 	}
 
 	UnregisterOutput struct {
@@ -32,11 +34,12 @@ type (
 	}
 
 	SubmitInput struct {
-		Username       string         `json:"username,omitempty"`
+		Username       string
+		Role           string
 		ContestId      string         `json:"contest_id,omitempty"`
-		ProblemLabel   string         `json:"problem_id,omitempty"`
+		ProblemLabel   string         `json:"problem_label,omitempty"`
 		Code           string         `json:"code,omitempty"`
-		LanguageId     string         `json:"language,omitempty"`
+		Language       string         `json:"language,omitempty"`
 		SubmissionType SubmissionType `json:"submission_type,omitempty"`
 	}
 

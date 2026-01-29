@@ -169,12 +169,13 @@ func (si *SubmissionInteractor) GetProblemSubmission(ctx context.Context, input 
 	}, nil
 }
 
-func (si *SubmissionInteractor) InternalContestSubmitSubmission(ctx context.Context, input *usecase.InternalContestSubmitSubmissionInput) (*usecase.SubmitSubmissionResponse,  error) {
+func (si *SubmissionInteractor) InternalContestSubmitSubmission(ctx context.Context, input *usecase.InternalContestSubmitSubmissionInput) (*usecase.SubmitSubmissionResponse, error) {
 	log := config.GetLogger()
 	log.Info().Msgf("User %s submitted a solution in %s, for problem with problem id: %s", input.Username, input.LanguageId, input.ProblemId)
 
 	problemInfo, err := si.problemService.Get(ctx, input.ProblemId)
 	if err != nil {
+		log.Error().Err(err).Msgf("failed to get problem info")
 		return nil, err
 	}
 
@@ -191,11 +192,13 @@ func (si *SubmissionInteractor) InternalContestSubmitSubmission(ctx context.Cont
 
 	_, err = si.sourcecodeRepo.CreateSourcecode(ctx, input.Code, input.LanguageId, submissionId)
 	if err != nil {
+		log.Error().Err(err).Msgf("failed to create source code")
 		return nil, err
 	}
 
 	evalId, err := si.evalRepo.CreateEval(ctx, submissionId, problemInfo.TimeLimit, memory.Memory(problemInfo.MemoryLimit), problemInfo.TestNum)
 	if err != nil {
+		log.Error().Err(err).Msgf("failed to create evaluation")
 		return nil, err
 	}
 
@@ -207,6 +210,7 @@ func (si *SubmissionInteractor) InternalContestSubmitSubmission(ctx context.Cont
 		ProblemId:      input.ProblemId,
 		LanguageId:     input.LanguageId,
 		EvalId:         evalId,
+		ContestId:      input.ContestId,
 	}
 
 	log.Info().Msgf("Enqueue submission, id: %s. With eval id: %s", submissionId, evalId)
@@ -216,8 +220,6 @@ func (si *SubmissionInteractor) InternalContestSubmitSubmission(ctx context.Cont
 		log.Error().Msgf("InternalContestSubmitSubmission error: %v", err)
 		return nil, err
 	}
-
-	// TODO: call contest service and upsert the submission
 
 	return &usecase.SubmitSubmissionResponse{
 		Message: "Submit successfully!",

@@ -27,7 +27,7 @@ func (csr *ContestSubmissionRepositoryImpl) Create(
 	ctx context.Context,
 	contestId string,
 	username string,
-	contestProblemId string,
+	ProblemId uint64,
 	submissionType domain.ParticipantType,
 	submitAt time.Time,
 	submissionId string,
@@ -37,18 +37,17 @@ func (csr *ContestSubmissionRepositoryImpl) Create(
 		return "", err
 	}
 
-	contestProblemBsonId, err := bson.ObjectIDFromHex(contestProblemId)
 	newContestSubmission := domain.ContestSubmission{
-		ContestId:        contestBsonId,
-		SubmissionId:     submissionId,
-		Username:         username,
-		ContestProblemId: contestProblemBsonId,
-		SubmitAt:         submitAt,
-		Points:           0,
-		EvalStatus:       domain.Pending,
-		Ignored:          false,
-		UpdatedAt:        submitAt,
-		SubmissionType:   submissionType,
+		ContestId:      contestBsonId,
+		SubmissionId:   submissionId,
+		Username:       username,
+		ProblemId:      ProblemId,
+		SubmitAt:       submitAt,
+		Points:         0,
+		EvalStatus:     domain.Pending,
+		Ignored:        false,
+		UpdatedAt:      submitAt,
+		SubmissionType: submissionType,
 	}
 
 	result, err := csr.collection.InsertOne(ctx, newContestSubmission)
@@ -59,29 +58,28 @@ func (csr *ContestSubmissionRepositoryImpl) Create(
 	return result.InsertedID.(bson.ObjectID).Hex(), nil
 }
 
-func (csr *ContestSubmissionRepositoryImpl) UpsertFromJudgeEvent(
+func (csr *ContestSubmissionRepositoryImpl) UpdateFromJudgeEvent(
 	ctx context.Context,
 	submissionId string,
 	verdict domain.Verdict,
 	points float64,
-) (string, error) {
-	result, err := csr.collection.UpdateOne(ctx,
+) error {
+	_, err := csr.collection.UpdateOne(ctx,
 		bson.M{"submission_id": submissionId},
 		bson.M{
 			"$set": bson.M{
-				"submission_id": submissionId,
-				"eval_status":   domain.Finished,
-				"verdict":       verdict,
-				"points":        points,
-				"updated_at":    time.Now(),
+				"eval_status": domain.Finished,
+				"verdict":     verdict,
+				"points":      points,
+				"updated_at":  time.Now(),
 			},
 		})
 
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	return result.UpsertedID.(bson.ObjectID).Hex(), nil
+	return nil
 }
 
 func (csr *ContestSubmissionRepositoryImpl) ListByContest(

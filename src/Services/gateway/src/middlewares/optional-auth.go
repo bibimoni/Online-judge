@@ -4,6 +4,7 @@ import (
 	// "bytes"
 	"encoding/json"
 	"fmt"
+
 	// "io"
 	"net/http"
 	"strconv"
@@ -57,11 +58,15 @@ func OptionalAuth(next http.Handler) http.Handler {
 		// 	obj = make(map[string]any)
 		// }
 
+		config.GetLogger().Debug().Msgf("Auth Response: %+v", res.PayLoad)
+
 		r.Header.Set("X-User-Id", strconv.Itoa(res.PayLoad.Id))
 		r.Header.Set("X-User-Role", res.PayLoad.Role)
 		permsJson, _ := json.Marshal(res.PayLoad.Permissions)
 		r.Header.Set("X-User-Permissions", string(permsJson))
 		r.Header.Set("X-Username", res.PayLoad.Username)
+
+		config.GetLogger().Debug().Msgf("%+v", r.Header)
 
 		// // obj["username"] = res.PayLoad.Username
 		// newBytes, _ := json.Marshal(obj)

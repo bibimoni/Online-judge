@@ -15,9 +15,10 @@ type Config struct {
 		Name string
 	}
 	Redis struct {
-		Uri                string
-		Password           string
-		SubmissionQueueKey string
+		Uri                               string
+		Password                          string
+		SubmissionQueueKey                string
+		InternalSubmissionContestQueueKey string
 	}
 	LogLevel        string
 	SandboxLogLevel string
@@ -38,7 +39,8 @@ type Config struct {
 	CheckerBinName    string
 	InteractorBinName string
 	CrossRunJarName   string
-	InternalSecret string
+	InternalSecret    string
+	ContestServerAddr string
 }
 
 func Load() (*Config, error) {
@@ -50,6 +52,7 @@ func Load() (*Config, error) {
 	cfg.Redis.Uri = getEnv("SUBMISSION_REDIS_URI", "redissubmissionjudge:6379")
 	cfg.Redis.Password = getEnv("SUBMISSION_REDIS_PASSWORD", "")
 	cfg.Redis.SubmissionQueueKey = "SubmissionQueue"
+	cfg.Redis.InternalSubmissionContestQueueKey = "InternalSubmissionContestQueue"
 
 	cfg.Enviroment = getEnv("SUBMISSION_ENV", "Development")
 
@@ -88,6 +91,7 @@ func Load() (*Config, error) {
 	}
 
 	cfg.InternalSecret = getEnv("INTERNAL_SECRET", "internal-secret")
+	cfg.ContestServerAddr = getEnv("CONTEST_ENDPOINT", "http://contest"+":"+getEnv("CONTEST_PORT", "8001")) + "/api/v1/contest/"
 
 	return cfg, nil
 }

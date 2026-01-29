@@ -130,9 +130,6 @@ func (cr *ContestRepositoryImpl) AddPeople(ctx context.Context, contestId string
 		return fmt.Errorf("tester %s already in contest %s", username, contestId)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
 	var data any
 	if peopleType == contestrepo.Contestant {
 		data = domain.CreateContestant(username, paricipantType)
@@ -143,7 +140,7 @@ func (cr *ContestRepositoryImpl) AddPeople(ctx context.Context, contestId string
 	_, err = cr.collection.UpdateOne(
 		ctx,
 		bson.M{"_id": cId},
-		bson.M{"$push": bson.M{string(peopleType): data}},
+		bson.M{"$push": bson.M{"contestants": data}},
 	)
 	if err != nil {
 		return err
@@ -204,7 +201,7 @@ func (cr *ContestRepositoryImpl) RemovePeople(ctx context.Context, contestId str
 	_, err = cr.collection.UpdateOne(
 		ctx,
 		bson.M{"_id": cId},
-		bson.M{"$pull": bson.M{string(peopleType): data}},
+		bson.M{"$pull": bson.M{"contestants": data}},
 	)
 	if err != nil {
 		return err

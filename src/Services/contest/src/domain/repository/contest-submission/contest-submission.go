@@ -11,17 +11,17 @@ type ContestSubmissionRepository interface {
 		ctx context.Context,
 		contestId string,
 		username string,
-		contestProblemId string,
+		ProblemId uint64,
 		submissionType domain.ParticipantType,
 		submitAt time.Time,
 		submissionId string,
 	) (string, error)
-	UpsertFromJudgeEvent(
+	UpdateFromJudgeEvent(
 		ctx context.Context,
 		submissionId string,
 		verdict domain.Verdict,
 		points float64,
-	) (string, error)
+	) error
 	ListByContest(
 		ctx context.Context,
 		contestId string,

@@ -49,6 +49,10 @@ func main() {
 			r.With(middlewares.WithPermission("edit_contest")).Method("PUT", "/manage/problems", proxy.ContestApiProxy())
 
 		})
+
+		r.With(middlewares.WithPermission("register_contest")).Method("POST", "/register", proxy.ContestApiProxy())
+		r.With(middlewares.WithPermission("register_contest")).Method("POST", "/unregister", proxy.ContestApiProxy())
+		r.With(middlewares.WithPermission("submit_code")).Method("POST", "/submit", proxy.ContestApiProxy())
 	})
 
 	s.ListenAndServe()

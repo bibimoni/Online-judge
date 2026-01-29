@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	InternalJudgeSubmitEndpoint = "/api/v1/internal/contest/submit"
+	InternalJudgeSubmitEndpoint = "internal/contest/submit"
 )
 
 type ContestSubmissionServiceImpl struct {
@@ -45,7 +45,7 @@ func (css *ContestSubmissionServiceImpl) SubmitContestSubmissionToJudge(
 	contestId string,
 	problemLabel string,
 	code string,
-	languageId string,
+	language string,
 	username string,
 	submissionType domain.ParticipantType,
 ) (string, error) {
@@ -67,14 +67,14 @@ func (css *ContestSubmissionServiceImpl) SubmitContestSubmissionToJudge(
 		Method: "POST",
 		URL:    css.contestSubmissionServiceAddr + InternalJudgeSubmitEndpoint,
 		Headers: map[string]string{
-			"X-Internal-Secert": cfg.InternalSecret,
+			"X-Internal-Secret": cfg.InternalSecret,
 		},
 		Body: map[string]string{
 			"problem_id":      strconv.FormatUint(contestProblem.ProblemId, 10),
 			"code":            code,
 			"username":        username,
 			"contest_id":      contestId,
-			"language_id":     languageId,
+			"language":        language,
 			"submit_at":       submitAt.Format(time.RFC3339),
 			"submission_type": string(submissionType),
 		},
@@ -94,10 +94,10 @@ func (css *ContestSubmissionServiceImpl) SubmitContestSubmissionToJudge(
 		ctx,
 		contestId,
 		username,
-		contestProblem.Id.Hex(),
+		contestProblem.ProblemId,
 		submissionType,
 		submitAt,
-		result.ID,
+		result.Data.ID,
 	)
 
 	if err != nil {
@@ -105,4 +105,8 @@ func (css *ContestSubmissionServiceImpl) SubmitContestSubmissionToJudge(
 	}
 
 	return contestSubmissionId, nil
+}
+
+func (css *ContestSubmissionServiceImpl) UpsertContestSubmissionFromJudgeEvent(ctx context.Context, submissionId string, verdict domain.Verdict, points float64) error {
+	return css.contestsubmissionrepo.UpdateFromJudgeEvent(ctx, submissionId, verdict, points)
 }

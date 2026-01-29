@@ -31,4 +31,5 @@ type SubmissionRequest struct {
 	ProblemId      string
 	LanguageId     string
 	EvalId         string
+	ContestId      string
 }

@@ -53,6 +53,7 @@ func toInternalContestSubmitSubmissionType(c *gin.Context) (*usecase.InternalCon
 		log.Error().Msgf("failed to get config: %s", err.Error())
 		return nil, fmt.Errorf("internal server error")
 	}
+	
 	if secretHeader != cfg.InternalSecret {
 		log.Error().Msgf("invalid internal secret")
 		return nil, fmt.Errorf("forbidden")

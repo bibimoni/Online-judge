@@ -109,6 +109,14 @@ func (er *EvaluationRepositoryImpl) GetEvalBySubmissionId(ctx context.Context, s
 	return &returnEval, nil
 }
 
+func (er *EvaluationRepositoryImpl) GetEvalBySubmissionIdNoBson(ctx context.Context, submissionId string) (*domain.EvaluationResult, error) {
+	submissionBsonId, err := bson.ObjectIDFromHex(submissionId)
+	if err != nil {
+		return nil, err
+	}
+	return er.GetEvalBySubmissionId(ctx, submissionBsonId)
+}
+
 func (er *EvaluationRepositoryImpl) UpdateCase(
 	ctx context.Context,
 	evalId string,
@@ -170,6 +178,82 @@ func (er *EvaluationRepositoryImpl) UpdateFinal(
 		"memory_usage":     memoryUsage,
 		"n_success":        nsucess,
 		"points":           points,
+		"message":          message,
+		"eval_status":      domain.FINISHED,
+		"timestamp_finish": time.Now().UnixMilli(),
+	}})
+
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (er *EvaluationRepositoryImpl) UpdateCaseFloat(
+	ctx context.Context,
+	evalId string,
+	verdictCase domain.Verdict,
+	cpuTimeCase float64,
+	memoryUsageCase memory.Memory,
+	outputCase string,
+	scoreCase float64,
+	maxScoreCase float64,
+	cpuTime float64,
+	memoryUsage memory.Memory,
+	nsucess int,
+) error {
+	bid, err := bson.ObjectIDFromHex(evalId)
+	if err != nil {
+		return err
+	}
+
+	_, err = er.collection.UpdateOne(ctx, bson.M{"_id": bid}, bson.M{
+		"$push": bson.M{
+			"verdict_case":      verdictCase,
+			"cpu_time_case":     cpuTimeCase,
+			"memory_usage_case": memoryUsageCase,
+			"outputs":           outputCase,
+			"max_score_case":    maxScoreCase,
+			"score_case":        scoreCase,
+		},
+		"$set": bson.M{
+			"eval_status":  domain.JUDGING,
+			"cpu_time":     cpuTime,
+			"memory_usage": memoryUsage,
+			"n_success":    nsucess,
+		},
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (er *EvaluationRepositoryImpl) UpdateFinalFloat(
+	ctx context.Context,
+	evalId string,
+	verdict domain.Verdict,
+	cpuTime float64,
+	memoryUsage memory.Memory,
+	nsucess int,
+	totalScore float64,
+	totalMaxScore float64,
+	message string,
+) error {
+	bid, err := bson.ObjectIDFromHex(evalId)
+	if err != nil {
+		return err
+	}
+
+	_, err = er.collection.UpdateOne(ctx, bson.M{"_id": bid}, bson.M{"$set": bson.M{
+		"verdict":          verdict,
+		"cpu_time":         cpuTime,
+		"memory_usage":     memoryUsage,
+		"n_success":        nsucess,
+		"score":            totalScore,
+		"max_score":        totalMaxScore,
 		"message":          message,
 		"eval_status":      domain.FINISHED,
 		"timestamp_finish": time.Now().UnixMilli(),

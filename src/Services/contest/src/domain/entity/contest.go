@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	ProblemCountLimit uint8 = 15
-	RegisterKey string = "register"
-	UnRegisterKey string = "unregister"
+	ProblemCountLimit uint8  = 15
+	RegisterKey       string = "register"
+	UnRegisterKey     string = "unregister"
 )
 
 type ScoreboardVisibility string
@@ -66,16 +66,19 @@ const (
 	Ended     ContestStatus = "ENDED"
 )
 
-func (contest *Contest) CanRegister(username string, _ ParticipantType) bool {
+func (contest *Contest) CanRegister(username string, _ ParticipantType, role string) bool {
 	// TODO: support participant type check, specificlly for virtual contest
+	config.GetLogger().Debug().Msgf("does contestant exists: %v", contest.ContestantExist(username))
 	if contest.ContestantExist(username) {
-		return false;
+		return false
 	}
+	// exists -> co mat -> khong cho dang ky -> return true ->
 
 	canRegisterPhase := []ContestStatus{Scheduled, Running}
-	if contest.IsContestManager(username) {
+	if contest.IsContestManager(username) || contest.IsAdmin(username, role) {
 		canRegisterPhase = append(canRegisterPhase, Draft)
 	}
+	config.GetLogger().Debug().Msgf("contest status: %v\n register phases %v\n", contest.Status, canRegisterPhase)
 
 	if !slices.Contains(canRegisterPhase, contest.Status) {
 		return false
@@ -84,14 +87,15 @@ func (contest *Contest) CanRegister(username string, _ ParticipantType) bool {
 	return true
 }
 
-func (contest *Contest) CanUnregister(username string) bool {
+func (contest *Contest) CanUnregister(username, role string) bool {
 	if !contest.ContestantExist(username) {
-		return false;
+		return false
 	}
 	canUnregisterPhase := []ContestStatus{Scheduled}
-	if contest.IsContestManager(username) {
+	if contest.IsContestManager(username) || contest.IsAdmin(username, role) {
 		canUnregisterPhase = append(canUnregisterPhase, Draft)
 	}
+	// TODO: check if user has any submission (if there are, cannot unregister)
 
 	if !slices.Contains(canUnregisterPhase, contest.Status) {
 		return false
@@ -100,14 +104,16 @@ func (contest *Contest) CanUnregister(username string) bool {
 	return true
 }
 
-func (contest *Contest) CanSubmit(username string) bool {
+func (contest *Contest) CanSubmit(username, role string) bool {
 	if !contest.ContestantExist(username) {
 		return false
 	}
 	canSubmitPhase := []ContestStatus{Running, Freeze}
-	if contest.IsContestManager(username) {
+	if contest.IsContestManager(username) || contest.IsAdmin(username, role) {
 		canSubmitPhase = append(canSubmitPhase, Draft, Scheduled)
 	}
+	config.GetLogger().Debug().Msgf("contest status: %v\n", contest.Status)
+	config.GetLogger().Debug().Msgf("Phases: %v", canSubmitPhase)
 
 	if !slices.Contains(canSubmitPhase, contest.Status) {
 		return false

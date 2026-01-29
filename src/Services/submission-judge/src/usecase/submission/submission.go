@@ -19,9 +19,9 @@ type SubmissionUsecase interface {
 
 type (
 	InternalContestSubmitSubmissionInput struct {
-		ProblemId 	   string  				 `json:"problem_id,omitempty"`
-		Code           string  				 `json:"code,omitempty"`
-		Username       string                `json:"username,omitempty"`
+		ProblemId      string `json:"problem_id,omitempty"`
+		Code           string `json:"code,omitempty"`
+		Username       string
 		ContestId      string                `json:"contest_id,omitempty"`
 		LanguageId     string                `json:"language,omitempty"`
 		SubmitAt       time.Time             `json:"submit_at"`
@@ -29,7 +29,7 @@ type (
 	}
 
 	SubmitSubmissionInput struct {
-		Username       string                `json:"username,omitempty"`
+		Username       string
 		ProblemId      string                `json:"problem_id,omitempty"`
 		Code           string                `json:"code,omitempty"`
 		LanguageId     string                `json:"language,omitempty"`

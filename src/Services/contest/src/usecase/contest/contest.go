@@ -43,7 +43,7 @@ type (
 		ParticipantType domain.ParticipantType `json:"participant_type,omitempty"` // only if peopleType is Contestant
 		PeopleType      contestrepo.PeopleType `json:"people_type" validate:"required"`
 		Target          string                 `json:"target" validate:"required"`
-		Username        string                 `json:"username" validate:"required"` // Auto injected from gateway
+		Username        string                 
 		UserRole        string                 `json:"user_role,omitempty"`
 	}
 

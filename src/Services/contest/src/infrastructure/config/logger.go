@@ -23,6 +23,7 @@ func GetLogger() *zerolog.Logger {
 }
 
 func NewLogger(level string) *zerolog.Logger {
+	color.NoColor = false
 	logLevel := getLogLevel(level)
 	consoleWriter := zerolog.ConsoleWriter{
 		Out:        os.Stderr,
