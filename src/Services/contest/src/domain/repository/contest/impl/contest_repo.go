@@ -369,3 +369,22 @@ func (cr *ContestRepositoryImpl) GetProblemByLabels(ctx context.Context, contest
 	}
 	return problems, nil
 }
+
+func (cr *ContestRepositoryImpl) GetContestsByProblemId(ctx context.Context, problemId uint64) ([]*domain.Contest, error) {
+	cursor, err := cr.collection.Find(ctx,
+		bson.M{
+			"problems.problem_id": problemId,
+		},
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var contests []*domain.Contest
+	if err := cursor.All(ctx, &contests); err != nil {
+		return nil, err
+	}
+
+	return contests, nil
+}

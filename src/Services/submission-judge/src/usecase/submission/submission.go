@@ -2,8 +2,10 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"time"
 
+	"github.com/bibimoni/Online-judge/submission-judge/src/common"
 	domain "github.com/bibimoni/Online-judge/submission-judge/src/domain/entitiy"
 	"github.com/bibimoni/Online-judge/submission-judge/src/pkg/memory"
 	usecase "github.com/bibimoni/Online-judge/submission-judge/src/usecase/wssubmission"
@@ -13,9 +15,12 @@ type SubmissionUsecase interface {
 	SubmitSubmission(ctx context.Context, input *SubmitSubmissionInput) (output *SubmitSubmissionResponse, err error)
 	GetSubmission(ctx context.Context, input *GetSubmissionInput) (output *GetSubmissionOutput, err error)
 	GetProblemSubmission(ctx context.Context, input *GetProblemSubmissionInput)
+	// TODO! add contest_id and upsert back to contest
 	RejudgeSubmission(ctx context.Context, input *RejudgeSubmissionInput) error
 	InternalContestSubmitSubmission(ctx context.Context, input *InternalContestSubmitSubmissionInput) (output *SubmitSubmissionResponse, err error)
 }
+
+var ErrProblemLocked = errors.New("problem is locked in an active contest")
 
 type (
 	InternalContestSubmitSubmissionInput struct {
@@ -29,6 +34,7 @@ type (
 	}
 
 	SubmitSubmissionInput struct {
+		Role           common.RoleName
 		Username       string
 		ProblemId      string                `json:"problem_id,omitempty"`
 		Code           string                `json:"code,omitempty"`

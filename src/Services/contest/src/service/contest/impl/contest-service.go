@@ -87,3 +87,18 @@ func (s *ContestServiceImpl) ChangeProblems(ctx context.Context, contestId strin
 	s.contestRepo.UpdateProblems(ctx, contestId, problems)
 	return nil
 }
+
+func (s *ContestServiceImpl) IsProblemInActiveCOntest(ctx context.Context, problemId uint64) (bool, *domain.Contest, error) {
+	contests, err := s.contestRepo.GetContestsByProblemId(ctx, problemId)
+	if err != nil {
+		return false, nil, err
+	}
+
+	for _, contest := range contests {
+		if contest.Status != domain.Ended {
+			return true, contest, nil
+		}
+	}
+
+	return false, nil, nil
+}

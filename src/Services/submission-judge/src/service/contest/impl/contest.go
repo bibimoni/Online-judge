@@ -3,6 +3,7 @@ package contestserviceimpl
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/bibimoni/Online-judge/submission-judge/src/common"
@@ -12,6 +13,7 @@ import (
 )
 
 const IngestContestSubmissionEndpoint = "internal/ingest-submission"
+const ProblemInActiveContestEndpoint = "internal/problem-lock/%d"
 
 type ContestServiceImpl struct {
 	contestServiceAddr string
@@ -63,4 +65,31 @@ func (csi *ContestServiceImpl) IngestContestSubmission(
 	}
 
 	return nil
+}
+
+func (csi *ContestServiceImpl) IsProblemInActiveContest(ctx context.Context, problemIdStr string) (bool, error) {
+	problemId, err := strconv.Atoi(problemIdStr)
+	if err != nil {
+		return false, fmt.Errorf("invalid problem id: %s", problemIdStr)
+	}
+	req := common.APIRequest{
+		Method: "GET",
+		URL:    csi.contestServiceAddr + fmt.Sprintf(ProblemInActiveContestEndpoint, problemId),
+		Headers: map[string]string{
+			"X-Internal-Secret": csi.internalSecret,
+		},
+		Timeout: 10 * time.Second,
+	}
+
+	result, err := common.SendRequest[contestservice.ProblemInActiveContestResponse](ctx, req)
+	if err != nil {
+		return false, err
+	}
+
+	if result == nil {
+		return false, fmt.Errorf("there is an error occured fetch requesting from CONTEST SERVICE")
+	}
+
+	config.GetLogger().Debug().Msgf("Problem %s locked status in active contest: %v", problemIdStr, result.Data.Locked)
+	return result.Data.Locked, nil
 }

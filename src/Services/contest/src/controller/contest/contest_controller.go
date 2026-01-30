@@ -6,7 +6,7 @@ import (
 	domain "contest/src/domain/entity"
 	contestrepo "contest/src/domain/repository/contest"
 	"contest/src/infrastructure/config"
-	"contest/src/usecase/contest"
+	contestusecase "contest/src/usecase/contest"
 	"fmt"
 	"slices"
 
@@ -46,6 +46,14 @@ func Edit(contestInteractor contestusecase.ContestInteractor) gin.HandlerFunc {
 	)
 }
 
+func InternalProblemLock(contestInteractor contestusecase.ContestInteractor) gin.HandlerFunc {
+	return common.InvokeUseCase(
+		toInternalProblemLockInput,
+		contestInteractor.InternalProblemLock,
+		common.WriteSuccessOutput[contestusecase.InternalProblemLockOutput],
+	)
+}
+
 func Patch(contestInteractor contestusecase.ContestInteractor) gin.HandlerFunc {
 	return common.InvokeUseCase(
 		toPatchContestInput,
@@ -62,6 +70,18 @@ func ManageProblems(contestInteractor contestusecase.ContestInteractor) gin.Hand
 	)
 }
 
+func toInternalProblemLockInput(c *gin.Context) (*contestusecase.InternalProblemLockInput, error) {
+	problemIdStr := c.Param("problem_id")
+	var problemId uint64
+	_, err := fmt.Sscanf(problemIdStr, "%d", &problemId)
+	if err != nil {
+		config.GetLogger().Error().Err(err).Msgf("Invalid problem_id: %s", problemIdStr)
+		return nil, common.NewBadRequestError("invalid problem_id")
+	}
+	return &contestusecase.InternalProblemLockInput{
+		ProblemId: problemId,
+	}, nil
+}
 func toGetAllContestInput(c *gin.Context) (*contestusecase.GetContestsInput, error) {
 	rc, ok := controller.GetContextRequest(c)
 	if !ok {

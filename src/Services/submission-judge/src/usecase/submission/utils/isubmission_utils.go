@@ -19,7 +19,7 @@ import (
 
 // GetSubmissionRequests converts submission IDs, filtered out valid submission (evalStatus is FINISHED)
 // convert it into SubmissionRequest slice and return it
-// TODO: move it to a repository layer
+// TODO: move it to a service
 func GetSubmissionRequests(
 	ctx context.Context,
 	evalRepo erepository.EvaluationRepository,

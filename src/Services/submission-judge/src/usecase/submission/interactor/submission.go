@@ -7,12 +7,14 @@ import (
 
 	// "strconv"
 
+	"github.com/bibimoni/Online-judge/submission-judge/src/common"
 	evalRepo "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/evaluation"
 	scr "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/sourcecode"
 	repository "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/submission"
 	sr "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/submission"
 	"github.com/bibimoni/Online-judge/submission-judge/src/infrastructure/config"
 	"github.com/bibimoni/Online-judge/submission-judge/src/pkg/memory"
+	contestservice "github.com/bibimoni/Online-judge/submission-judge/src/service/contest"
 	isolateservice "github.com/bibimoni/Online-judge/submission-judge/src/service/isolate"
 	"github.com/bibimoni/Online-judge/submission-judge/src/service/judge"
 	"github.com/bibimoni/Online-judge/submission-judge/src/service/problem"
@@ -27,6 +29,7 @@ type SubmissionInteractor struct {
 	problemService problem.ProblemService
 	judgeService   judge.JudgeService
 	evalRepo       evalRepo.EvaluationRepository
+	contestService contestservice.ContestService
 }
 
 func NewSubmissionInteractor(
@@ -35,6 +38,7 @@ func NewSubmissionInteractor(
 	ps problem.ProblemService,
 	js judge.JudgeService,
 	er evalRepo.EvaluationRepository,
+	contestService contestservice.ContestService,
 ) *SubmissionInteractor {
 	return &SubmissionInteractor{
 		submissionRepo: sr,
@@ -42,12 +46,21 @@ func NewSubmissionInteractor(
 		problemService: ps,
 		judgeService:   js,
 		evalRepo:       er,
+		contestService: contestService,
 	}
 }
 
 func (si *SubmissionInteractor) SubmitSubmission(ctx context.Context, input *usecase.SubmitSubmissionInput) (output *usecase.SubmitSubmissionResponse, err error) {
 	log := config.GetLogger()
 	log.Info().Msgf("User %s submitted a solution in %s, for problem with problem id: %s", input.Username, input.LanguageId, input.ProblemId)
+
+	is_problem_locked, err := si.contestService.IsProblemInActiveContest(ctx, input.ProblemId)
+	if err != nil {
+		return nil, err
+	}
+	if input.Role != common.RoleAdmin && is_problem_locked {
+		return nil, usecase.ErrProblemLocked
+	}
 
 	problemInfo, err := si.problemService.Get(ctx, input.ProblemId)
 	if err != nil {

@@ -23,6 +23,8 @@ type ContestRepository interface {
 
 	ListAllContestsWithAuth(ctx context.Context, username, role string) ([]*domain.Contest, error)
 	ListAllPublicContests(ctx context.Context) ([]*domain.Contest, error)
+
+	GetContestsByProblemId(ctx context.Context, problemId uint64) ([]*domain.Contest, error)
 }
 
 var ErrNoContestFound = errors.New("no contest found")

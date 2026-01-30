@@ -3,7 +3,7 @@ package contestinteractor
 import (
 	"contest/src/common"
 	domain "contest/src/domain/entity"
-	"contest/src/domain/repository/contest"
+	contestrepo "contest/src/domain/repository/contest"
 	"contest/src/infrastructure/config"
 	contestservice "contest/src/service/contest"
 	contestusecase "contest/src/usecase/contest"
@@ -225,4 +225,16 @@ func (i *ContestInteractor) GetAllContests(ctx context.Context, input *contestus
 	return &contestusecase.GetContestsOutput{
 		Contests: contests,
 	}, nil
+}
+
+func (i *ContestInteractor) InternalProblemLock(
+	ctx context.Context,
+	input *contestusecase.InternalProblemLockInput,
+) (*contestusecase.InternalProblemLockOutput, error) {
+	is_ok, contest, err := i.contestService.IsProblemInActiveCOntest(ctx, input.ProblemId)
+	if err != nil {
+		return nil, err
+	}
+	config.GetLogger().Info().Msgf("InternalProblemLock: problem %d locked: %v in contest %v", input.ProblemId, is_ok, contest)
+	return &contestusecase.InternalProblemLockOutput{Locked: is_ok}, nil
 }

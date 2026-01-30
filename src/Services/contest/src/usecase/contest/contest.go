@@ -19,9 +19,16 @@ type ContestInteractor interface {
 	ManageContestProblems(ctx context.Context, input *ManageContestProblemsInput) (*ManageContestProblemsOutput, error)
 	GetContestById(ctx context.Context, input *GetContestByIdInput) (*GetContestByIdOutput, error)
 	GetAllContests(ctx context.Context, input *GetContestsInput) (*GetContestsOutput, error)
+	InternalProblemLock(ctx context.Context, input *InternalProblemLockInput) (*InternalProblemLockOutput, error)
 }
 
 type (
+	InternalProblemLockInput struct {
+		ProblemId uint64
+	}
+	InternalProblemLockOutput struct {
+		Locked bool `json:"locked"`
+	}
 	GetContestsOutput struct {
 		Contests []*domain.Contest `json:"contests"`
 	}
@@ -43,8 +50,8 @@ type (
 		ParticipantType domain.ParticipantType `json:"participant_type,omitempty"` // only if peopleType is Contestant
 		PeopleType      contestrepo.PeopleType `json:"people_type" validate:"required"`
 		Target          string                 `json:"target" validate:"required"`
-		Username        string                 
-		UserRole        string                 `json:"user_role,omitempty"`
+		Username        string
+		UserRole        string `json:"user_role,omitempty"`
 	}
 
 	EditContestOutput struct {
