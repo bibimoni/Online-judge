@@ -1,7 +1,6 @@
 package common
 
 import (
-	"contest/src/common/helper"
 	"context"
 	"net/http"
 
@@ -47,14 +46,14 @@ func InvokeWSUseCase[Input any, Output any](
 	return func(c *gin.Context) {
 		input, err := GetInput(c)
 		if err != nil {
-			helper.WriteFailed(c, err, http.StatusBadRequest)
+			WriteFailed(c, err, http.StatusBadRequest)
 			return
 		}
 
 		ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 
 		if err != nil {
-			helper.WriteFailed(c, err, http.StatusInternalServerError)
+			WriteFailed(c, err, http.StatusInternalServerError)
 			return
 		}
 		defer ws.Close()

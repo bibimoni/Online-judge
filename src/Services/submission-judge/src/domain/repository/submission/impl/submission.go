@@ -91,6 +91,23 @@ func (sr *SubmissionRepositoryImpl) CreateSubmission(ctx context.Context, params
 	return got.InsertedID.(bson.ObjectID).Hex(), nil
 }
 
+func (sr *SubmissionRepositoryImpl) CreateSubmissionWithTimestamp(ctx context.Context, params repository.CreateSubmissionInput, submitAt time.Time) (string, error) {
+	newSubmission := domain.Submission{
+		Username:  params.Username,
+		ProblemId: params.ProblemId,
+		Timestamp: submitAt,
+		Type:      params.Type,
+	}
+	got, err := sr.collection.InsertOne(ctx, newSubmission)
+	if err != nil {
+		return "", err
+	}
+
+	log := config.GetLogger()
+	log.Info().Msgf("Saved submission with id: [%s] to the database", got.InsertedID.(bson.ObjectID).Hex())
+	return got.InsertedID.(bson.ObjectID).Hex(), nil
+}
+
 func (sr *SubmissionRepositoryImpl) FindSubmission(ctx context.Context, submissionId string) (*domain.Submission, error) {
 	bId, err := bson.ObjectIDFromHex(submissionId)
 	if err != nil {

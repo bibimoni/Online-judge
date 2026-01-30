@@ -12,7 +12,7 @@ import (
 	"github.com/bibimoni/Online-judge/submission-judge/src/service/problem/utils"
 )
 
-const PROBLEM_INFO_FILENAME = "problem.json"
+const ProblemInfoFilename = "problem.json"
 
 type ProblemServiceImpl struct {
 	problemServerAddr string
@@ -35,7 +35,7 @@ func NewProblemService() (problem.ProblemService, error) {
 func (ps *ProblemServiceImpl) Get(ctx context.Context, id string) (*problem.ProblemServiceGetOutput, error) {
 	req := common.APIRequest{
 		Method:  "GET",
-		URL:     ps.problemServerAddr + "get/" + id + "/" + PROBLEM_INFO_FILENAME,
+		URL:     ps.problemServerAddr + "get/" + id + "/" + ProblemInfoFilename,
 		Timeout: 60 * time.Second,
 	}
 
@@ -44,7 +44,7 @@ func (ps *ProblemServiceImpl) Get(ctx context.Context, id string) (*problem.Prob
 		return nil, err
 	}
 	if result == nil {
-		return nil, fmt.Errorf("There is an error occured fetch requesting from PROBLEM SERVER")
+		return nil, fmt.Errorf("there is an error occured fetch requesting from PROBLEM SERVER")
 	}
 	if result.ScoringMode == "" || len(result.TestGroups) == 0 {
 		result.ScoringMode = "ICPC"

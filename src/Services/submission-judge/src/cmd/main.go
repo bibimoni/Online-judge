@@ -2,6 +2,12 @@ package main
 
 import (
 	"context"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
 	appctx "github.com/bibimoni/Online-judge/submission-judge/src/components"
 	"github.com/bibimoni/Online-judge/submission-judge/src/infrastructure/config"
 	"github.com/bibimoni/Online-judge/submission-judge/src/infrastructure/database"
@@ -11,11 +17,6 @@ import (
 	si "github.com/bibimoni/Online-judge/submission-judge/src/service/store/impl"
 	workerimpl "github.com/bibimoni/Online-judge/submission-judge/src/service/worker/impl"
 	"github.com/gin-gonic/gin"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 )
 
 func main() {
@@ -43,9 +44,10 @@ func main() {
 	workerService := workerimpl.NewWorkerService(
 		appCtx.GetRedisRepo(),
 		appCtx.GetJudgeService(),
-		// appCtx.GetIsolateService(),
 		appCtx.GetProblemService(),
 		cfg.Judge.Amount,
+		appCtx.GetContestService(),
+		appCtx.GetEvalRepo(),
 	)
 	workerService.Start()
 

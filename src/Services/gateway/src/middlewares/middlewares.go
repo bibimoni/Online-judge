@@ -1,10 +1,11 @@
 package middlewares
 
 import (
-	"bytes"
+	// "bytes"
 	"encoding/json"
 	"fmt"
-	"io"
+
+	// "io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -17,7 +18,7 @@ import (
 type AuthResponseBody struct {
 	Username    string   `json:"username,omitempty"`
 	Id          int      `json:"id,omitempty"`
-	Role        string   `json:"contestant,omitempty"`
+	Role        string   `json:"role,omitempty"`
 	Permissions []string `json:"permissions,omitempty"`
 }
 
@@ -46,35 +47,36 @@ func WithAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		org, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, "Can't read body", http.StatusBadRequest)
-			return
-		}
-		defer r.Body.Close()
-
-		var obj map[string]any
-		if len(org) > 0 {
-			if err := json.Unmarshal(org, &obj); err != nil {
-				http.Error(w, "Invalid Json", http.StatusBadRequest)
-			}
-		} else {
-			obj = make(map[string]any)
-		}
+		// org, err := io.ReadAll(r.Body)
+		// if err != nil {
+		// 	http.Error(w, "Can't read body", http.StatusBadRequest)
+		// 	return
+		// }
+		// defer r.Body.Close()
+		//
+		// var obj map[string]any
+		// if len(org) > 0 {
+		// 	if err := json.Unmarshal(org, &obj); err != nil {
+		// 		http.Error(w, "Invalid Json", http.StatusBadRequest)
+		// 	}
+		// } else {
+		// 	obj = make(map[string]any)
+		// }
 
 		r.Header.Set("X-User-Id", strconv.Itoa(res.PayLoad.Id))
 		r.Header.Set("X-User-Role", res.PayLoad.Role)
 		permsJson, _ := json.Marshal(res.PayLoad.Permissions)
 		r.Header.Set("X-User-Permissions", string(permsJson))
+		r.Header.Set("X-Username", res.PayLoad.Username)
 
-		obj["username"] = res.PayLoad.Username
-		newBytes, _ := json.Marshal(obj)
+		// obj["username"] = res.PayLoad.Username
+		// newBytes, _ := json.Marshal(obj)
 
-		r.Body = io.NopCloser(bytes.NewReader(newBytes))
-
-		r.ContentLength = int64(len(newBytes))
-
-		r.Header.Set("Content-Length", strconv.Itoa(len(newBytes)))
+		// r.Body = io.NopCloser(bytes.NewReader(newBytes))
+		//
+		// r.ContentLength = int64(len(newBytes))
+		//
+		// r.Header.Set("Content-Length", strconv.Itoa(len(newBytes)))
 
 		next.ServeHTTP(w, r)
 	})

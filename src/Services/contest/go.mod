@@ -44,6 +44,7 @@ require (
 )
 
 require (
+	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect

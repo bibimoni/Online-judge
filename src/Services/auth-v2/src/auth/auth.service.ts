@@ -63,7 +63,7 @@ export class AuthService {
   async verifyPermission(payload: any, requiredPermission: string) {
     try {
       const user = await this.prisma.user.findUnique({
-        where: { id: payload.id },
+        where: payload.username ? { username: payload.username } : { id: payload.userId },
         include: { role: { include: { permissions: true } } }
       });
 
@@ -79,16 +79,22 @@ export class AuthService {
     }
   }
 
-  async getProfile(userId: number) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+  async getProfile(userId: number | null, username: string | null) {
+    const user = await this.prisma.user.findUnique({
+      where: username ? { username: username } : { id: userId }
+    });
+    // const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException('User not found');
     const role = user.roleId ? await this.prisma.role.findUnique({ where: { id: user.roleId } }) : null;
     const { password, refreshToken, ...result } = user;
     return { ...result, role: role ? role.name : null };
   }
 
-  async getPermissions(userId: number) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+  async getPermissions(userId: number, username: string | null) {
+    // const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({
+      where: username ? { username: username } : { id: userId }
+    });
     if (!user) throw new UnauthorizedException('User not found');
     const role = user.roleId ? await this.prisma.role.findUnique({
       where: { id: user.roleId },

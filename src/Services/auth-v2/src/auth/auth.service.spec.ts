@@ -274,7 +274,7 @@ describe('AuthService', () => {
       mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
       mockPrismaService.role.findUnique.mockResolvedValue(mockRole);
 
-      const result = await service.getProfile(1);
+      const result = await service.getProfile(1, "admin");
 
       expect(result).not.toHaveProperty('password');
       expect(result).not.toHaveProperty('refreshToken');
@@ -285,7 +285,7 @@ describe('AuthService', () => {
     it('should throw UnauthorizedException if user not found', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue(null);
 
-      await expect(service.getProfile(999)).rejects.toThrow(
+      await expect(service.getProfile(999, "hi")).rejects.toThrow(
         UnauthorizedException,
       );
     });
@@ -311,7 +311,7 @@ describe('AuthService', () => {
       mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
       mockPrismaService.role.findUnique.mockResolvedValue(mockRole);
 
-      const result = await service.getPermissions(1);
+      const result = await service.getPermissions(1, "admin");
 
       expect(result.role).toBe('admin');
       expect(result.permissions).toEqual(['manage_users', 'manage_problems']);
@@ -320,7 +320,7 @@ describe('AuthService', () => {
     it('should throw UnauthorizedException if user not found', async () => {
       mockPrismaService.user.findUnique.mockResolvedValue(null);
 
-      await expect(service.getPermissions(999)).rejects.toThrow(
+      await expect(service.getPermissions(999, "hi")).rejects.toThrow(
         UnauthorizedException,
       );
     });
