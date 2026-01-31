@@ -46,11 +46,11 @@ FUTURE:
 - Automatically get the latest package of the problem
 */
 func AddProblem(ProblemId uint64) error {
-	if found, err := CheckAlreadyAdded(ProblemId); err != nil {
-		return fmt.Errorf("error while checking the problem repository: %s", err.Error())
-	} else if found {
-		return fmt.Errorf("problem already existed in the repository")
-	}
+	// if found, err := CheckAlreadyAdded(ProblemId); err != nil {
+	// 	return fmt.Errorf("error while checking the problem repository: %s", err.Error())
+	// } else if found {
+	// 	return fmt.Errorf("problem already existed in the repository")
+	// }
 
 	var PackageId uint64
 	PackageId, err := polygon.GetLastestPackage(ProblemId)
@@ -78,11 +78,17 @@ func AddProblem(ProblemId uint64) error {
 		return fmt.Errorf("error decoding problem.xml: %s", err.Error())
 	}
 
-	// ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	// defer cancel()
-	// if _, err := db.Database("problem-db").Collection("Problems").InsertOne(ctx, problem); err != nil {
-	// 	return fmt.Errorf("error saving problem to database: %s", err.Error())
-	// }
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	filter := bson.M{"problem-id": int64(ProblemId)}
+	if _, err := db.Database("problem-db").Collection("Problems").DeleteMany(ctx, filter); err != nil {
+		return fmt.Errorf("error deleting old version of problem: %s", err.Error())
+	}
+
+	if _, err := db.Database("problem-db").Collection("Problems").InsertOne(ctx, problem); err != nil {
+		return fmt.Errorf("error saving problem to database: %s", err.Error())
+	}
 
 	return nil
 }
