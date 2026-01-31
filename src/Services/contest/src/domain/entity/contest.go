@@ -171,11 +171,11 @@ func (contest *Contest) CanViewContest(username, role string) bool {
 	return false
 }
 
-func (contest *Contest) hasStarted() bool {
+func (contest *Contest) HasStarted() bool {
 	return time.Now().After(contest.StartTime)
 }
 
-func (contest *Contest) hasEnded() bool {
+func (contest *Contest) HasEnded() bool {
 	return time.Now().After(contest.EndTime)
 }
 
