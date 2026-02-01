@@ -1,3 +1,7 @@
+coverage.out
+# .github/
+.github/workflows/contest-service-ci.yml
+.github/workflows/ci.yml
 .env
 submission-judge-db-data/
 problem-db-data/
@@ -9,3 +13,6 @@ scoreboard_redis/
 **/main
 **/tmp/
 .DS_Store
+AGENTS.md
+.DS_Store
+isolate**/

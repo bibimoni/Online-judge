@@ -17,12 +17,16 @@ func NewWSSubmissionInteractor(rrepo repository.RedisSubmissionRepository) *WSSu
 	}
 }
 
-func (wss *WSSubmissionInteractor) SubmissionStatus(ctx context.Context, input *usecase.WSSubmissionInput, out chan<- *usecase.WSSubmissionResponse) {
+func (wss *WSSubmissionInteractor) SubmissionStatus(
+	ctx context.Context,
+	input *usecase.WSSubmissionInput,
+	out chan<- *usecase.WSSubmissionResponse,
+) {
 	channel := wss.rrepo.GetChannelString(input.ProblemId, input.Username, input.SubmissionId)
 	config.GetLogger().Debug().Msgf("Channel string: %s", channel)
 	stream, err := wss.rrepo.Subscribe(ctx, channel)
 	if err != nil {
-		config.GetLogger().Error().Msgf("Subscribe Error")
+		config.GetLogger().Error().Err(err).Msg("Subscribe Error")
 	}
 
 	for {

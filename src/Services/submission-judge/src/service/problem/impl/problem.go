@@ -12,7 +12,7 @@ import (
 	"github.com/bibimoni/Online-judge/submission-judge/src/service/problem/utils"
 )
 
-const PROBLEM_INFO_FILENAME = "problem.json"
+const ProblemInfoFilename = "problem.json"
 
 type ProblemServiceImpl struct {
 	problemServerAddr string
@@ -35,7 +35,7 @@ func NewProblemService() (problem.ProblemService, error) {
 func (ps *ProblemServiceImpl) Get(ctx context.Context, id string) (*problem.ProblemServiceGetOutput, error) {
 	req := common.APIRequest{
 		Method:  "GET",
-		URL:     ps.problemServerAddr + "get/" + id + "/" + PROBLEM_INFO_FILENAME,
+		URL:     ps.problemServerAddr + "get/" + id + "/" + ProblemInfoFilename,
 		Timeout: 60 * time.Second,
 	}
 
@@ -44,8 +44,12 @@ func (ps *ProblemServiceImpl) Get(ctx context.Context, id string) (*problem.Prob
 		return nil, err
 	}
 	if result == nil {
-		return nil, fmt.Errorf("There is an error occured fetch requesting from PROBLEM SERVER")
+		return nil, fmt.Errorf("there is an error occured fetch requesting from PROBLEM SERVER")
 	}
+	if result.ScoringMode == "" || len(result.TestGroups) == 0 {
+		result.ScoringMode = "ICPC"
+	}
+
 	return result, nil
 }
 
@@ -65,13 +69,8 @@ func (ps *ProblemServiceImpl) GetTestCaseDirAddr(problemId string, tcType proble
 		return "", fmt.Errorf("Please provide either INPUT or OUTPUT for testcase type")
 	}
 
-	stat, err := utils.FileExsits(stringAddr)
-	if err != nil {
-		return "", err
-	}
-	if !stat {
-		return "", fmt.Errorf("This directory isn't available")
-	}
+	err = utils.EnsureProblemDirectory(stringAddr)
+
 	return stringAddr, nil
 }
 
@@ -80,20 +79,24 @@ func (ps *ProblemServiceImpl) GetTestCaseAddr(problemId string, tcType problem.T
 	if err != nil {
 		return "", err
 	}
-
-	stringAddr += strconv.Itoa(testNum)
-
-	stat, err := utils.FileExsits(stringAddr)
-	log := config.GetLogger()
-	log.Debug().Msgf("string address: %s", stringAddr)
-
+	cfg, err := config.Load()
 	if err != nil {
 		return "", err
 	}
-	if !stat {
-		return "", fmt.Errorf("This test file isn't available")
+
+	strTcType := "input"
+	if tcType == problem.OUTPUT {
+		strTcType = "output"
 	}
-	return stringAddr, nil
+
+	stringAddr += strconv.Itoa(testNum)
+	remoteURL := fmt.Sprintf("%sget/%s/tests/%s/%s", cfg.ProblemServerAddr, problemId, strTcType, strconv.Itoa(testNum))
+
+	log := config.GetLogger()
+	log.Debug().Msgf("string address: %s, url: %s", stringAddr, remoteURL)
+
+	// return stringAddr, nil
+	return utils.GetFileWithCache(context.Background(), stringAddr, remoteURL)
 }
 
 func (ps *ProblemServiceImpl) GetCheckerAddr(problemId string) (string, error) {
@@ -102,15 +105,16 @@ func (ps *ProblemServiceImpl) GetCheckerAddr(problemId string) (string, error) {
 		return "", err
 	}
 
-	stringAddr := cfg.ProblemsDir + "/" + problemId + "/checker"
-	stat, err := utils.FileExsits(stringAddr)
+	stringAddr := cfg.ProblemsDir + "/" + problemId
+	err = utils.EnsureProblemDirectory(stringAddr)
 	if err != nil {
 		return "", err
 	}
-	if !stat {
-		return "", fmt.Errorf("This checker file isn't available")
-	}
-	return stringAddr, nil
+	stringAddr = stringAddr + "/checker"
+	remoteURL := fmt.Sprintf("%sget/%s/checker", cfg.ProblemServerAddr, problemId)
+
+	// return stringAddr, nil
+	return utils.GetFileWithCache(context.Background(), stringAddr, remoteURL)
 }
 
 func (ps *ProblemServiceImpl) GetInteractorAddr(problemId string) (string, error) {
@@ -119,15 +123,15 @@ func (ps *ProblemServiceImpl) GetInteractorAddr(problemId string) (string, error
 		return "", err
 	}
 
-	stringAddr := cfg.ProblemsDir + "/" + problemId + "/interactor"
-	stat, err := utils.FileExsits(stringAddr)
+	stringAddr := cfg.ProblemsDir + "/" + problemId
+	err = utils.EnsureProblemDirectory(stringAddr)
 	if err != nil {
 		return "", err
 	}
-	if !stat {
-		return "", fmt.Errorf("This interactor file isn't available")
-	}
-	return stringAddr, nil
+	stringAddr = stringAddr + "/interactor"
+	remoteURL := fmt.Sprintf("%sget/%s/interactor", cfg.ProblemServerAddr, problemId)
+	// return stringAddr, nil
+	return utils.GetFileWithCache(context.Background(), stringAddr, remoteURL)
 }
 
 func (ps *ProblemServiceImpl) GetCrossRunAddr(problemId string) (string, error) {
@@ -136,13 +140,12 @@ func (ps *ProblemServiceImpl) GetCrossRunAddr(problemId string) (string, error) 
 		return "", err
 	}
 
-	stringAddr := cfg.ProblemsDir + "/" + problemId + "/CrossRun.jar"
-	stat, err := utils.FileExsits(stringAddr)
+	stringAddr := cfg.ProblemsDir + "/" + problemId
+	err = utils.EnsureProblemDirectory(stringAddr)
 	if err != nil {
 		return "", err
 	}
-	if !stat {
-		return "", fmt.Errorf("This cross run file isn't available")
-	}
-	return stringAddr, nil
+	stringAddr = stringAddr + "/CrossRun.jar"
+	remoteURL := fmt.Sprintf("%sget/%s/CrossRun.jar", cfg.ProblemServerAddr, problemId)
+	return utils.GetFileWithCache(context.Background(), stringAddr, remoteURL)
 }

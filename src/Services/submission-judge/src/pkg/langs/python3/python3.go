@@ -16,6 +16,7 @@ type Python3 struct {
 	name        string
 	compileArgs []string
 	needCompile bool
+	pkg.LanguageService
 }
 
 func (python Python3) ID() string {
@@ -38,6 +39,14 @@ func (python Python3) ExecutableName() string {
 	return "main"
 }
 
+func (python Python3) GetCompileArgs() []string {
+	return python.compileArgs
+}
+
+func (python Python3) GetCompilerBin() string {
+	return "/usr/bin/python3"
+}
+
 // Run cpp file, which is a binary file, make sure it's present in the isolate working directory
 func (python Python3) Run(i *domain.Isolate, rc *domain.RunConfig, req *isolateservice.SubmissionRequest) error {
 	i.Logger.Info().Msgf("Start running source code with id: %s", req.SubmissionId)
@@ -49,8 +58,8 @@ func (python Python3) Run(i *domain.Isolate, rc *domain.RunConfig, req *isolates
 
 	i.Logger.Info().Msgf("Start compiling source code with id: %s", req.SubmissionId)
 
-	return req.IService.Run(
-		i, *rc, req, "/usr/bin/python3", runArgs...,
+	return python.IService.Run(
+		i, *rc, req, python.GetCompilerBin(), runArgs...,
 	)
 }
 
@@ -64,8 +73,8 @@ func (python Python3) RunCmdStrNoStream(i *domain.Isolate, rc *domain.RunConfig,
 
 	i.Logger.Info().Msgf("Start compiling source code with id: %s", req.SubmissionId)
 
-	return req.IService.RunCmdStrNoStream(
-		i, *rc, req, "/usr/bin/python3", runArgs...,
+	return python.IService.RunCmdStrNoStream(
+		i, *rc, req, python.GetCompilerBin(), runArgs...,
 	)
 }
 
@@ -89,8 +98,8 @@ func (python Python3) Compile(i *domain.Isolate, req *isolateservice.SubmissionR
 
 	i.Logger.Info().Msgf("Start compiling source code with id: %s", req.SubmissionId)
 
-	return req.IService.Run(
-		i, rc, req, "/usr/bin/python3", runArgs...,
+	return python.IService.Run(
+		i, rc, req, python.GetCompilerBin(), runArgs...,
 	)
 }
 
@@ -103,5 +112,5 @@ var python3 = Python3{
 }
 
 func GetAllOptions() []pkg.Language {
-	return []pkg.Language{python3}
+	return []pkg.Language{&python3}
 }

@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	repository "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/redissubmission"
 	"github.com/bibimoni/Online-judge/submission-judge/src/infrastructure/config"
+	isolateservice "github.com/bibimoni/Online-judge/submission-judge/src/service/isolate"
 	usecase "github.com/bibimoni/Online-judge/submission-judge/src/usecase/wssubmission"
 	"github.com/redis/go-redis/v9"
 )
@@ -70,4 +72,49 @@ func (rs *RedisSubmissionRepositoryImpl) Subscribe(ctx context.Context, channelI
 		}
 	}()
 	return out, nil
+}
+
+func (rs *RedisSubmissionRepositoryImpl) PushSubmissionJob(ctx context.Context, req *isolateservice.SubmissionRequest) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	return pushJob(ctx, rs.rdb, cfg.Redis.SubmissionQueueKey, req)
+}
+
+func (rs *RedisSubmissionRepositoryImpl) PopSubmissionJob(ctx context.Context) (*isolateservice.SubmissionRequest, error) {
+	cfg, err := config.Load()
+	if err != nil {
+		return nil, err
+	}
+	return popJob[isolateservice.SubmissionRequest](ctx, rs.rdb, cfg.Redis.SubmissionQueueKey)
+}
+
+func (rs *RedisSubmissionRepositoryImpl) SetNX(ctx context.Context, key string, value string, ttl time.Duration) (bool, error) {
+	return rs.rdb.SetNX(ctx, key, value, ttl).Result()
+}
+
+func pushJob[T any](ctx context.Context, rdb *redis.Client, queueKey string, req *T) error {
+	data, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	return rdb.RPush(ctx, queueKey, data).Err()
+}
+
+func popJob[T any](ctx context.Context, rdb *redis.Client, queueKey string) (*T, error) {
+	res, err := rdb.BLPop(ctx, 0, queueKey).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	var req T
+	// res[1] is value
+	err = json.Unmarshal([]byte(res[1]), &req)
+	if err != nil {
+		return nil, err
+	}
+	return &req, nil
 }

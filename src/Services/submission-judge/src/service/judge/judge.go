@@ -33,7 +33,7 @@ type JudgeService interface {
 		tc int,
 		curCpu *float64,
 		curMem *memory.Memory,
-	) (done bool, err error)
+	) (*TestCaseResult, error)
 }
 
 type RunVerdict struct {
@@ -50,6 +50,15 @@ type RunVerdict struct {
 	CgOomKilled    int           `json:"cg-oom-killed"`
 	ExitedNormally bool          `json:"exited-normally"`
 	KilledBySignal int           `json:"killed"`
+}
+
+type TestCaseResult struct {
+	Verdict    domain.Verdict
+	Message    string
+	Score      float64
+	Time       float64
+	Memory     memory.Memory
+	ShouldStop bool
 }
 
 var CompilationError = errors.New("Compilation Error")

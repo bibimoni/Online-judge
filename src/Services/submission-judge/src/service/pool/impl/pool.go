@@ -2,6 +2,7 @@ package impl
 
 import (
 	"errors"
+	"sync"
 
 	"fmt"
 
@@ -14,7 +15,9 @@ import (
 
 type PoolServiceImpl struct {
 	pool           *domain.Pool
-	isolateService *isolateservice.IsolateService
+	isolateService isolateservice.IsolateService
+	currentCount   int
+	mu             sync.Mutex
 }
 
 func NewPoolSerivce() (poolservice.PoolService, error) {
@@ -40,38 +43,77 @@ func NewPoolServiceImpl() (*PoolServiceImpl, error) {
 		pool: &domain.Pool{
 			Isolates: make(chan *domain.Isolate, cfg.Judge.Amount),
 		},
-		isolateService: &is,
+		isolateService: is,
 	}
 
-	log := config.GetLogger()
-	log.Info().Msgf("Offset: %d, amount: %d", cfg.Judge.IDOffset, cfg.Judge.Amount)
-	// Init all isolate
-	for i := cfg.Judge.IDOffset; i < (cfg.Judge.IDOffset + cfg.Judge.Amount); i++ {
-		newIsolate, err := is.NewIsolate(i)
-		if err != nil {
-			return nil, err
-		}
-		err = is.Init(newIsolate)
-		// if err != nil {
-		// 	return nil, err
-		// }
-		newPool.Put(newIsolate)
-	}
+	// // Init all isolate
+	// for i := cfg.Judge.IDOffset; i < (cfg.Judge.IDOffset + cfg.Judge.Amount); i++ {
+	// 	newIsolate, err := is.NewIsolate(i)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	err = is.Init(newIsolate)
+	// 	// if err != nil {
+	// 	// 	return nil, err
+	// 	// }
+	// 	newPool.Put(newIsolate)
+	// }
 
-	log.Info().Msgf("Finished initialized pool service")
+	config.GetLogger().Info().Msgf("Finished initialized pool service")
 
 	return newPool, nil
 }
 
 func (ps *PoolServiceImpl) Get() (*domain.Isolate, error) {
-	i, ok := <-ps.pool.Isolates
-	if !ok {
-		return nil, errors.New("Channel is closed")
+	select {
+	case i, ok := <-ps.pool.Isolates:
+		if !ok {
+			return nil, errors.New("Channel is closed")
+		}
+		config.GetLogger().Info().Msgf("Isolate available, use it")
+		return i, nil
+	default:
+		cfg, err := config.Load()
+		config.GetLogger().Info().Msgf("Offset: %d, amount: %d", cfg.Judge.IDOffset, cfg.Judge.Amount)
+		if err != nil {
+			return nil, err
+		}
+		ps.mu.Lock()
+		if ps.currentCount < cfg.Judge.Amount {
+			id := cfg.Judge.IDOffset + ps.currentCount
+			newIsolate, err := ps.isolateService.NewIsolate(id)
+			if err != nil {
+				return nil, err
+			}
+			err = ps.isolateService.Init(newIsolate)
+			if err != nil {
+				config.GetLogger().Warn().Err(err).Msg("Error happend when init isolate")
+			}
+			ps.currentCount += 1
+			ps.mu.Unlock()
+			return newIsolate, nil
+		}
+		ps.mu.Unlock()
+		i, ok := <-ps.pool.Isolates
+		if !ok {
+			return nil, errors.New("Channel is closed")
+		}
+		return i, nil
+
 	}
-	return i, nil
 }
 
 func (ps *PoolServiceImpl) Put(i *domain.Isolate) {
+	// clean up after each run to avoid accumulation of memory
+	// may need better approach for performance improvement
+	err := ps.isolateService.Cleanup(i)
+	if err != nil {
+		config.GetLogger().Warn().Err(err).Msg("Error happend when cleanup isolate")
+	}
+	err = ps.isolateService.Init(i)
+	if err != nil {
+		config.GetLogger().Warn().Err(err).Msg("Error happend when re-init isolate")
+	}
 	ps.pool.Isolates <- i
 }
 

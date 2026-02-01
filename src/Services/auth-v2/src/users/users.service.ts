@@ -5,7 +5,7 @@ import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(createUserDto: CreateUserDto) {
     const { username, password, name } = createUserDto;
@@ -26,4 +26,14 @@ export class UsersService {
   async findById(user_id: number) { // Changed from string to number
     return this.prisma.user.findUnique({ where: { id: user_id } });
   }
+
+
+  async findRoleById(roleId: number) {
+    const role = await this.prisma.role.findUnique({
+      where: { id: roleId },
+      include: { permissions: true }
+    });
+    return role;
+  }
+
 }

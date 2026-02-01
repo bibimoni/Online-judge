@@ -29,7 +29,7 @@ type SubmissionRequest struct {
 	Sourcecode     string
 	SubmissionType domain.SubmissionType
 	ProblemId      string
-	IService       IsolateService
 	LanguageId     string
 	EvalId         string
+	ContestId      string
 }

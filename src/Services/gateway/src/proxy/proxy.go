@@ -24,6 +24,11 @@ func LoginApiProxy() http.Handler {
 	return newProxy(cfg.Endpoints.Auth)
 }
 
+func ContestApiProxy() http.Handler {
+	cfg := config.Load()
+	return newProxy(cfg.Endpoints.Contest)
+}
+
 func newProxy(endpoint string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		url, err := url.Parse(endpoint)
@@ -37,7 +42,12 @@ func newProxy(endpoint string) http.Handler {
 	})
 }
 
-func WSSubmissionProxy(endpoint string) http.Handler {
+func WSSubmissionProxy() http.Handler {
+	cfg := config.Load()
+	return WSProxy(cfg.Endpoints.Submission)
+}
+
+func WSProxy(endpoint string) http.Handler {
 	target, err := url.Parse(endpoint)
 	if err != nil {
 		panic("Invalid proxy URL: " + err.Error())
