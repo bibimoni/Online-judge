@@ -57,8 +57,6 @@ To support rejudge/skip reliably we store the contest view of the submission.
 - `Rank`
 - `Performance` (optional)
 
-### RejudgeJob
-- `ContestID` (reference to Contest)
 - `SubmissionIDs` (string[])
 - `ProblemID` (reference to Problem)
 - `RequestedBy` (string)
@@ -229,6 +227,8 @@ Rejudge is an async operation that re-runs judging for an existing set of submis
 Because it's async, the rejudge request will create a `RejudgeJob` and return a rejudge_job_id
 
 ## Implementation note
+### Auth route
+- All user information will be stored in the `request context` by the auth middlware 
 ### `ingest_submission` usecase
 1. validate contest exists
 2. store/Upsert `ContestSubmission` 
@@ -254,3 +254,6 @@ Also implement a rejudge API call.
 4. `submission-judge` rejudges (by adding the submission to its queue). Update eval, submission status in its database.
 5. After each submission is rejudged, `submission-judge` calls `ingest_submission` usecase in `contest` service
 6. `ingest_submission` updates `ContestSubmission`, or in this case also `RejudgeJob` status if all submissions are done.
+
+## Current issues
+1. When a contest is running, submission-judge endpoint must not be used for contest's problems.

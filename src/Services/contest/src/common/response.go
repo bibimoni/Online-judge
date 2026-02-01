@@ -1,10 +1,15 @@
-package helper
+package common
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
+
+type StatusOK struct {
+	Status string `json:"status"`
+}
 
 func WriteSuccessOutput[T any](c *gin.Context, output *T, err error) {
 	if err != nil {
@@ -29,6 +34,11 @@ func WriteCreatedOutput[T any](c *gin.Context, output *T, err error) {
 }
 
 func WriteFailedOutput(c *gin.Context, err error) {
+	var appError *AppError
+	if errors.As(err, &appError) {
+		WriteFailed(c, appError, appError.StatusCode)
+		return
+	}
 	WriteFailed(c, err, http.StatusBadRequest)
 }
 

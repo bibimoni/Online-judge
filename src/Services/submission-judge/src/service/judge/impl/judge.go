@@ -504,7 +504,7 @@ func (js *JudgeServiceImpl) JudgeIOI(
 		verdicts[idx] = result.Verdict
 
 		i.Logger.Debug().Msgf("Test case %d: verdict=%s, score=%.2f/%.2f", tc, result.Verdict, actualScore, maxScore)
-		updateErr := js.updateCase(ctx, req.EvalId, result.Verdict, result.Time, result.Memory, result.Message, int(actualScore), curCpuTime, curMemoryUsage, tc)
+		updateErr := js.updateCaseFloat(ctx, req.EvalId, result.Verdict, result.Time, result.Memory, result.Message, actualScore, maxScore, curCpuTime, curMemoryUsage, tc)
 		if updateErr != nil {
 			i.Logger.Panic().Err(updateErr).Msgf("Database error")
 			return updateErr
@@ -528,7 +528,7 @@ func (js *JudgeServiceImpl) JudgeIOI(
 	}
 
 	message := fmt.Sprintf("Total Score: %.2f/%.2f", min(totalScore, totalMaxScore), totalMaxScore)
-	err := js.updateFinal(ctx, req.EvalId, finalVerdict, curCpuTime, curMemoryUsage, nSuccess, int(totalScore), message)
+	err := js.updateFinalFloat(ctx, req.EvalId, finalVerdict, curCpuTime, curMemoryUsage, nSuccess, totalScore, totalMaxScore, message)
 	if err != nil {
 		i.Logger.Panic().Err(err).Msgf("Database error")
 		return err
@@ -662,4 +662,65 @@ func (js *JudgeServiceImpl) updateWS(ctx context.Context, evalId string) error {
 	}
 
 	return js.redisRepo.PulishSubmission(ctx, *wsUpdate)
+}
+
+func (js *JudgeServiceImpl) updateFinalFloat(
+	ctx context.Context,
+	evalId string,
+	verdict domain.Verdict,
+	cpuTime float64,
+	memoryUsage memory.Memory,
+	nsucess int,
+	score float64,
+	maxScore float64,
+	message string,
+) error {
+	err := js.evalRepo.UpdateFinalFloat(
+		ctx,
+		evalId,
+		verdict,
+		cpuTime,
+		memoryUsage,
+		nsucess,
+		score,
+		maxScore,
+		message,
+	)
+	if err != nil {
+		return err
+	}
+	return js.updateWS(ctx, evalId)
+}
+
+func (js *JudgeServiceImpl) updateCaseFloat(
+	ctx context.Context,
+	evalId string,
+	verdictCase domain.Verdict,
+	cpuTimeCase float64,
+	memoryUsageCase memory.Memory,
+	outputCase string,
+	scoreCase float64,
+	maxScoreCase float64,
+	cpuTime float64,
+	memoryUsage memory.Memory,
+	nsucess int,
+) error {
+	err := js.evalRepo.UpdateCaseFloat(
+		ctx,
+		evalId,
+		verdictCase,
+		cpuTimeCase,
+		memoryUsageCase,
+		outputCase,
+		scoreCase,
+		maxScoreCase,
+		cpuTime,
+		memoryUsage,
+		nsucess,
+	)
+	if err != nil {
+		return err
+	}
+
+	return js.updateWS(ctx, evalId)
 }

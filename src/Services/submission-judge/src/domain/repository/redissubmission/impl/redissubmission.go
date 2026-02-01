@@ -75,17 +75,12 @@ func (rs *RedisSubmissionRepositoryImpl) Subscribe(ctx context.Context, channelI
 }
 
 func (rs *RedisSubmissionRepositoryImpl) PushSubmissionJob(ctx context.Context, req *isolateservice.SubmissionRequest) error {
-	data, err := json.Marshal(req)
-	if err != nil {
-		return err
-	}
-
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
 
-	return rs.rdb.RPush(ctx, cfg.Redis.SubmissionQueueKey, data).Err()
+	return pushJob(ctx, rs.rdb, cfg.Redis.SubmissionQueueKey, req)
 }
 
 func (rs *RedisSubmissionRepositoryImpl) PopSubmissionJob(ctx context.Context) (*isolateservice.SubmissionRequest, error) {
@@ -93,21 +88,33 @@ func (rs *RedisSubmissionRepositoryImpl) PopSubmissionJob(ctx context.Context) (
 	if err != nil {
 		return nil, err
 	}
+	return popJob[isolateservice.SubmissionRequest](ctx, rs.rdb, cfg.Redis.SubmissionQueueKey)
+}
 
-	res, err := rs.rdb.BLPop(ctx, 0, cfg.Redis.SubmissionQueueKey).Result()
+func (rs *RedisSubmissionRepositoryImpl) SetNX(ctx context.Context, key string, value string, ttl time.Duration) (bool, error) {
+	return rs.rdb.SetNX(ctx, key, value, ttl).Result()
+}
+
+func pushJob[T any](ctx context.Context, rdb *redis.Client, queueKey string, req *T) error {
+	data, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	return rdb.RPush(ctx, queueKey, data).Err()
+}
+
+func popJob[T any](ctx context.Context, rdb *redis.Client, queueKey string) (*T, error) {
+	res, err := rdb.BLPop(ctx, 0, queueKey).Result()
 	if err != nil {
 		return nil, err
 	}
 
-	var req isolateservice.SubmissionRequest
+	var req T
 	// res[1] is value
 	err = json.Unmarshal([]byte(res[1]), &req)
 	if err != nil {
 		return nil, err
 	}
 	return &req, nil
-}
-
-func (rs *RedisSubmissionRepositoryImpl) SetNX(ctx context.Context, key string, value string, ttl time.Duration) (bool, error) {
-	return rs.rdb.SetNX(ctx, key, value, ttl).Result()
 }

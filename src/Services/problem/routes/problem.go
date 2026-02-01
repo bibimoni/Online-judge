@@ -21,25 +21,25 @@ func ProblemRoute(router fiber.Router) {
 		}
 
 		if err := storage.AddProblem(uint64(problemId)); err != nil {
-			return c.Status(500).SendString(fmt.Sprintf("Got error: %s", err.Error()))
+			return c.Status(500).SendString(fmt.Sprintf("error adding problem: %s", err.Error()))
 		}
 
 		return c.SendStatus(200)
 	})
 
-	router.Get("/latest", func(c *fiber.Ctx) error {
+	router.Get("/latest-version", func(c *fiber.Ctx) error {
 		var problemId int
 		problemId, err := strconv.Atoi(c.Query("problemId", ""))
 		if err != nil {
-			return c.Status(500).SendString(fmt.Sprintf("Got error: %s", err.Error()))
+			return c.Status(500).SendString("something wrong with your problemId parameter")
 		}
 
-		packageId, err := polygon.GetLastestPackage(uint64(problemId))
+		versionNumber, err := polygon.GetLatestVersionNumber(uint64(problemId))
 		if err != nil {
-			return c.Status(500).SendString(fmt.Sprintf("Got error: %s", err.Error()))
+			return c.Status(500).SendString(fmt.Sprintf("error getting latest version number: %s", err.Error()))
 		}
 
-		return c.SendString(strconv.FormatInt(int64(packageId), 10))
+		return c.SendString(fmt.Sprintf("v%d", versionNumber))
 	})
 
 	router.Get("all", func(c *fiber.Ctx) error {

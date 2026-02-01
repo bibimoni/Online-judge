@@ -24,6 +24,11 @@ func LoginApiProxy() http.Handler {
 	return newProxy(cfg.Endpoints.Auth)
 }
 
+func ContestApiProxy() http.Handler {
+	cfg := config.Load()
+	return newProxy(cfg.Endpoints.Contest)
+}
+
 func newProxy(endpoint string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		url, err := url.Parse(endpoint)

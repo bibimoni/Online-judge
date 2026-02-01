@@ -1,10 +1,11 @@
 package middlewares
 
 import (
-	"bytes"
+	// "bytes"
 	"encoding/json"
 	"fmt"
-	"io"
+
+	// "io"
 	"net/http"
 	"strconv"
 	"time"
@@ -81,29 +82,31 @@ func WithPermission(permission string) func(http.Handler) http.Handler {
 
 			permsJson, _ := json.Marshal(res.PayLoad.User.Permissions)
 			r.Header.Set("X-User-Permissions", string(permsJson))
+			r.Header.Set("X-Username", res.PayLoad.User.Username)
 
-			org, err := io.ReadAll(r.Body)
-			if err != nil {
-				http.Error(w, "Can't read body", http.StatusBadRequest)
-				return
-			}
-			defer r.Body.Close()
-
-			var obj map[string]any
-			if len(org) > 0 {
-				if err := json.Unmarshal(org, &obj); err != nil {
-					http.Error(w, "Invalid Json", http.StatusBadRequest)
-				}
-			} else {
-				obj = make(map[string]any)
-			}
-
-			obj["username"] = res.PayLoad.User.Username
-			newBodyBytes, _ := json.Marshal(obj)
-
-			r.Body = io.NopCloser(bytes.NewBuffer(newBodyBytes))
-			r.ContentLength = int64(len(newBodyBytes))
-			r.Header.Set("Content-Length", strconv.Itoa(len(newBodyBytes)))
+			// org, err := io.ReadAll(r.Body)
+			// if err != nil {
+			// 	http.Error(w, "Can't read body", http.StatusBadRequest)
+			// 	return
+			// }
+			// defer r.Body.Close()
+			//
+			// var obj map[string]any
+			// if len(org) > 0 {
+			// 	if err := json.Unmarshal(org, &obj); err != nil {
+			// 		http.Error(w, "Invalid Json", http.StatusBadRequest)
+			// 	}
+			// } else {
+			// 	obj = make(map[string]any)
+			// }
+			//
+			// // obj["username"] = res.PayLoad.User.Username
+			// // config.GetLogger().Debug().Msgf("Modified Body: %v", obj)
+			// newBodyBytes, _ := json.Marshal(obj)
+			//
+			// r.Body = io.NopCloser(bytes.NewBuffer(newBodyBytes))
+			// r.ContentLength = int64(len(newBodyBytes))
+			// r.Header.Set("Content-Length", strconv.Itoa(len(newBodyBytes)))
 
 			next.ServeHTTP(w, r)
 		})

@@ -12,5 +12,6 @@ func InitInteractor(appContext appctx.AppContext) (*interactor.SubmissionInterac
 		appContext.GetProblemService(),
 		appContext.GetJudgeService(),
 		appContext.GetEvalRepo(),
+		appContext.GetContestService(),
 	), nil
 }

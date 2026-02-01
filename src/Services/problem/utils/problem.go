@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"problem/models"
 	"strconv"
@@ -55,6 +56,79 @@ func ParseProblemStruct(problemId uint64, xml *os.File) (models.Problem, error) 
 		return problem, err
 	} else {
 		problem.MemoryLimit = uint64(val)
+	}
+	// ScoringMode
+
+	// Parse problem's tests
+	groups, err := xmlquery.QueryAll(doc, "//problem/judging/testset/groups/group")
+	if err != nil {
+		return problem, err
+	}
+
+	problem.ScoringMode = "OI"
+
+	// Checking if ICPC type
+	if len(groups) == 0 {
+		tests, err := xmlquery.QueryAll(doc, "//problem/judging/testset/tests/test")
+		if err != nil {
+			return problem, err
+		}
+		isICPC := true
+		for _, test := range tests {
+			if test.SelectAttr("points") != "" {
+				isICPC = false
+				break
+			}
+		}
+		if isICPC {
+			problem.ScoringMode = "ICPC"
+		}
+	}
+
+	if problem.ScoringMode == "OI" {
+		// OI-style problem
+
+		for _, group := range groups {
+			var groupStruct models.ProblemGroup
+
+			groupStruct.Name = group.SelectAttr("name")
+			groupStruct.Scoring = group.SelectAttr("points-policy")
+
+			// Dependencies
+			if group.SelectElement("dependencies") == nil {
+				continue
+			}
+
+			dependencies := group.SelectElement("dependencies")
+			for _, dependency := range dependencies.SelectElements("dependency") {
+				fmt.Printf("%s\n\n", dependency.SelectAttr("group"))
+
+				groupStruct.Dependencies = append(groupStruct.Dependencies, dependency.SelectAttr("group"))
+			}
+
+			problem.TestGroups = append(problem.TestGroups, groupStruct)
+		}
+
+		tests, err := xmlquery.QueryAll(doc, "//problem/judging/testset/tests/test")
+		if err != nil {
+			return problem, err
+		}
+		for testIdx, test := range tests {
+			groupName := test.SelectAttr("group")
+			testPoint, _ := strconv.ParseFloat(test.SelectAttr("points"), 64)
+
+			// handle cases where the doesn't belong to any group
+			if groupName == "" {
+				continue
+			}
+
+			for groupIdx := 0; groupIdx < len(problem.TestGroups); groupIdx++ {
+				if problem.TestGroups[groupIdx].Name == groupName {
+					problem.TestGroups[groupIdx].TestIndices = append(problem.TestGroups[groupIdx].TestIndices, testIdx)
+					problem.TestGroups[groupIdx].MaxScore += testPoint
+				}
+			}
+		}
 	}
 
 	return problem, nil

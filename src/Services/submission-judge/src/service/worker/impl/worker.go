@@ -2,14 +2,18 @@ package workerimpl
 
 import (
 	"context"
+	"sync"
+	"time"
+
+	domain "github.com/bibimoni/Online-judge/submission-judge/src/domain/entitiy"
+	evaluationRepo "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/evaluation"
 	redisRepo "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/redissubmission"
 	"github.com/bibimoni/Online-judge/submission-judge/src/infrastructure/config"
+	contestservice "github.com/bibimoni/Online-judge/submission-judge/src/service/contest"
 	"github.com/bibimoni/Online-judge/submission-judge/src/service/judge"
 	"github.com/bibimoni/Online-judge/submission-judge/src/service/problem"
 	"github.com/bibimoni/Online-judge/submission-judge/src/service/store"
 	"github.com/bibimoni/Online-judge/submission-judge/src/service/worker"
-	"sync"
-	"time"
 )
 
 type WorkerServiceImpl struct {
@@ -19,6 +23,8 @@ type WorkerServiceImpl struct {
 	quit           chan struct{}
 	wg             sync.WaitGroup
 	workerCount    int
+	contestService contestservice.ContestService
+	evalRepo       evaluationRepo.EvaluationRepository
 }
 
 func NewWorkerServiceImpl(
@@ -26,6 +32,8 @@ func NewWorkerServiceImpl(
 	judgeService judge.JudgeService,
 	problemService problem.ProblemService,
 	workerCount int,
+	contestService contestservice.ContestService,
+	evalRepo evaluationRepo.EvaluationRepository,
 ) *WorkerServiceImpl {
 	return &WorkerServiceImpl{
 		redisRepo:      redis,
@@ -33,6 +41,8 @@ func NewWorkerServiceImpl(
 		problemService: problemService,
 		quit:           make(chan struct{}),
 		workerCount:    workerCount,
+		contestService: contestService,
+		evalRepo:       evalRepo,
 	}
 }
 func NewWorkerService(
@@ -40,8 +50,10 @@ func NewWorkerService(
 	judgeService judge.JudgeService,
 	problemService problem.ProblemService,
 	workerCount int,
+	contestService contestservice.ContestService,
+	evalRepo evaluationRepo.EvaluationRepository,
 ) worker.WorkerService {
-	return NewWorkerServiceImpl(redis, judgeService, problemService, workerCount)
+	return NewWorkerServiceImpl(redis, judgeService, problemService, workerCount, contestService, evalRepo)
 }
 func (ws *WorkerServiceImpl) Start() {
 	for range ws.workerCount {
@@ -93,6 +105,24 @@ func (ws *WorkerServiceImpl) worker() {
 			err = ws.judgeService.JudgeStart(ctx, lang, req, problemInfo)
 			if err != nil {
 				config.GetLogger().Error().Err(err).Msg("Error processing submission")
+			}
+
+			// if this is from a contest (upsert!)
+			if req.ContestId != "" {
+				config.GetLogger().Info().Msgf("Ingesting contest submission for submission id: %s", req.SubmissionId)
+				eval, err := ws.evalRepo.GetEvalBySubmissionIdNoBson(ctx, req.SubmissionId)
+				if err != nil {
+					config.GetLogger().Error().Err(err).Msg("Error fetching submission after judging")
+					continue
+				}
+				if domain.SubmissionType(problemInfo.ScoringMode) == domain.ICPC {
+					ws.contestService.IngestContestSubmission(ctx, req.SubmissionId, eval.Verdict, float64(eval.Points))
+				} else if domain.SubmissionType(problemInfo.ScoringMode) == domain.IOI {
+					ws.contestService.IngestContestSubmission(ctx, req.SubmissionId, eval.Verdict, float64(eval.Score))
+				} else {
+					// placeholder
+					ws.contestService.IngestContestSubmission(ctx, req.SubmissionId, eval.Verdict, float64(eval.Points))
+				}
 			}
 		}
 	}

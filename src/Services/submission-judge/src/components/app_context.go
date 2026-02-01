@@ -12,6 +12,8 @@ import (
 	"github.com/bibimoni/Online-judge/submission-judge/src/infrastructure/config"
 	"github.com/bibimoni/Online-judge/submission-judge/src/service/checker"
 	checkerimpl "github.com/bibimoni/Online-judge/submission-judge/src/service/checker/impl"
+	contestservice "github.com/bibimoni/Online-judge/submission-judge/src/service/contest"
+	contestserviceimpl "github.com/bibimoni/Online-judge/submission-judge/src/service/contest/impl"
 	"github.com/bibimoni/Online-judge/submission-judge/src/service/interactor"
 	interactorimpl "github.com/bibimoni/Online-judge/submission-judge/src/service/interactor/impl"
 	isolateservice "github.com/bibimoni/Online-judge/submission-judge/src/service/isolate"
@@ -39,6 +41,7 @@ type AppContext interface {
 	GetIsolateService() isolateservice.IsolateService
 	GetJudgeService() judge.JudgeService
 	GetDB() *mongo.Database
+	GetContestService() contestservice.ContestService
 }
 
 type appCtx struct {
@@ -54,6 +57,7 @@ type appCtx struct {
 	redisRepo         redisrepo.RedisSubmissionRepository
 	isolateService    isolateservice.IsolateService
 	judgeService      judge.JudgeService
+	contestSvc        contestservice.ContestService
 }
 
 func (ctx *appCtx) GetMainDbConnection() *mongo.Database                   { return ctx.database }
@@ -69,6 +73,7 @@ func (ctx *appCtx) GetRedisRepo() redisrepo.RedisSubmissionRepository      { ret
 func (ctx *appCtx) GetIsolateService() isolateservice.IsolateService       { return ctx.isolateService }
 func (ctx *appCtx) GetJudgeService() judge.JudgeService                    { return ctx.judgeService }
 func (ctx *appCtx) GetDB() *mongo.Database                                 { return ctx.database }
+func (ctx *appCtx) GetContestService() contestservice.ContestService       { return ctx.contestSvc }
 
 func NewAppContext(
 	database *mongo.Database,
@@ -87,6 +92,10 @@ func NewAppContext(
 	redis := ri.NewRedisSubmissionRepository(rdb)
 	isolateS, _ := ii.NewIsolateService()
 	judgeSvc := ji.NewJudgeServiceImpl(pool, problemSvc, evalRepo, checkerS, interactorS, redis, submissionRepo, sourcecodeRepo, isolateS)
+	contestSvc, err := contestserviceimpl.NewContestService()
+	if err != nil {
+		config.GetLogger().Panic().Err(err).Msg("Can't not create contest service")
+	}
 
 	redisRepo := ri.NewRedisSubmissionRepository(rdb)
 	return &appCtx{
@@ -102,5 +111,6 @@ func NewAppContext(
 		redisRepo,
 		isolateS,
 		judgeSvc,
+		contestSvc,
 	}
 }

@@ -21,7 +21,6 @@ func main() {
 	r.Use(middleware.Recoverer)
 
 	r.Mount("/", proxy.LoginApiProxy())
-
 	r.Route("/api/v1/submission", func(r chi.Router) {
 		// r.With(middlewares.WithPermission("view_submission")).Method("GET", "/view/*", proxy.SubmissionApiProxy())
 		// r.With(middlewares.WithPermission("view_problem")).Method("GET", "/problem/view/*", proxy.SubmissionApiProxy())
@@ -36,6 +35,24 @@ func main() {
 		r.Method("GET", "/all", proxy.ProblemApiProxy())
 		r.Method("GET", "/get/{param}/statement.pdf", proxy.ProblemApiProxy())
 		r.Method("GET", "/get/{param}/problem.json", proxy.ProblemApiProxy())
+	})
+
+	r.Route("/api/v1/contest", func(r chi.Router) {
+
+		r.With(middlewares.OptionalAuth).Method("GET", "/", proxy.ContestApiProxy())
+		r.With(middlewares.WithPermission("create_contest")).Method("POST", "/create", proxy.ContestApiProxy())
+
+		r.Route("/{contest_id}", func(r chi.Router) {
+			r.With(middlewares.OptionalAuth).Method("GET", "/", proxy.ContestApiProxy())
+			r.With(middlewares.WithPermission("manage_contest")).Method("POST", "/edit", proxy.ContestApiProxy())
+			r.With(middlewares.WithPermission("edit_contest")).Method("PATCH", "/patch", proxy.ContestApiProxy())
+			r.With(middlewares.WithPermission("edit_contest")).Method("PUT", "/manage/problems", proxy.ContestApiProxy())
+
+		})
+
+		r.With(middlewares.WithPermission("register_contest")).Method("POST", "/register", proxy.ContestApiProxy())
+		r.With(middlewares.WithPermission("register_contest")).Method("POST", "/unregister", proxy.ContestApiProxy())
+		r.With(middlewares.WithPermission("submit_code")).Method("POST", "/submit", proxy.ContestApiProxy())
 	})
 
 	s.ListenAndServe()

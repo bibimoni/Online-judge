@@ -59,7 +59,7 @@ export class AuthController {
     if (!req.user) {
       throw new UnauthorizedException()
     }
-    
+
     return await this.authService.verifyPermission(req.user, body.permission);
   }
 
@@ -85,7 +85,7 @@ export class AuthController {
     }
   })
   async getProfile(@Request() req) {
-    return await this.authService.getProfile(req.user.id);
+    return await this.authService.getProfile(req.user.id, req.user.username);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -108,7 +108,7 @@ export class AuthController {
     }
   })
   async getPermissions(@Request() req: any) {
-    return await this.authService.getPermissions(req.user.id);
+    return await this.authService.getPermissions(req.user.id, req.user.username);
   }
 
   @Get('health')
