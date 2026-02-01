@@ -8,7 +8,6 @@ import (
 	"problem/storage"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
 )
 
@@ -18,9 +17,6 @@ func main() {
 	app := fiber.New(fiber.Config{
 		ServerHeader: "HCMUT-OJ",
 	})
-	app.Use(logger.New(logger.Config{
-		Output: os.Stdout,
-	}))
 
 	if err := storage.GetMongoDbClient(); err != nil {
 		panic(err)
