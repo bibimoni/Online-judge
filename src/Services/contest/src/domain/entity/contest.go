@@ -194,3 +194,12 @@ func (contest *Contest) canSeeScoreboard(username string) bool {
 
 	return false
 }
+
+func (contest *Contest) CanViewScoreboard(username, role string) bool {
+	if contest.IsContestManager(username) || role == common.AdminRole {
+		return true
+	} else if contest.ScoreboardVisibility == ScoreboardHidden {
+		return false
+	} 
+	return contest.HasStarted()
+}

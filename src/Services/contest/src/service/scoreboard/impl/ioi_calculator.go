@@ -5,51 +5,47 @@ import (
 	contestrepo "contest/src/domain/repository/contest"
 	contestsubmissionrepo "contest/src/domain/repository/contest-submission"
 	scoreboardrepo "contest/src/domain/repository/scoreboard"
-	"contest/src/infrastructure/config"
 	scoreboardserviceutils "contest/src/service/scoreboard/utils"
 	"context"
 	"slices"
 )
-
-type ICPCCalculator struct{
+type IOICalculator struct{
 	contestsubmissionrepo contestsubmissionrepo.ContestSubmissionRepository
 	contestrepo contestrepo.ContestRepository
 	scoreboardrepo scoreboardrepo.ScoreboardRepository
 }
 
-func NewICPCCalculator(
+func NewIOICalculator(
 	contestsubmissionrepo contestsubmissionrepo.ContestSubmissionRepository,
 	 contestrepo contestrepo.ContestRepository,
 	  scoreboardrepo scoreboardrepo.ScoreboardRepository,
-) *ICPCCalculator {
-	return &ICPCCalculator{
+) *IOICalculator {
+	return &IOICalculator{
 		contestsubmissionrepo: contestsubmissionrepo,
 		contestrepo: contestrepo,
 		scoreboardrepo: scoreboardrepo,	
 	}
 }
 
-func (c *ICPCCalculator) GetScoringType() domain.ScoringType {
-	return domain.ICPC
+func (c *IOICalculator) GetScoringType() domain.ScoringType {
+	return domain.IOI	
 }
 
-func (c *ICPCCalculator) BuildScoreboardSnapshot(
+func (c *IOICalculator) BuildScoreboardSnapshot(
 	ctx context.Context,
 	contestId string,
 	includeVirtual bool,
  	includeUnrated bool,
 ) (*domain.ScoreboardSnapshot, error) {
-	config.GetLogger().Info().Msgf("Building ICPC scoreboard snapshot for contest %s", contestId)
 	contestSubmissions, err := c.contestsubmissionrepo.ListByContest(ctx, contestId, includeVirtual, includeUnrated)
 	if err != nil {
 		return nil, err
 	}
-
 	contest, err := c.contestrepo.GetById(ctx, contestId)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var snapshotKind domain.SnapshotKind
 	if contest.HasEnded() {
 		snapshotKind = domain.FinalSnapshot
@@ -63,37 +59,30 @@ func (c *ICPCCalculator) BuildScoreboardSnapshot(
 		userSubmission[submission.Username] = append(userSubmission[submission.Username], submission)
 	}
 
+	userProblemSubmissions := scoreboardserviceutils.GetUserProblemSubmissions(contestSubmissions)
 	scoreboardRows := make([]domain.ScoreboardRow, 0, len(userSubmission))
-	firstSolveResults := scoreboardserviceutils.BuildFirstSolveResults(contestSubmissions)
-	userProblemSubmissions := scoreboardserviceutils.GetUserProblemSubmissions(contestSubmissions)	
-	for username, problemSubmissions := range userProblemSubmissions {
-		penalties := 0
-		problemResults := make([]domain.ScoreboardProblemResult, len(contest.Problems))
-		for i := range contest.Problems {
-			problem := contest.Problems[i]
-			isFirstSolve := firstSolveResults[problem.ProblemId] == username
-			problemResults[i] = scoreboardserviceutils.BuildScoreboardProblemResult(
+
+	for username := range userSubmission {
+		var problemResults []domain.ScoreboardProblemResult
+		for _, problem := range contest.Problems {
+			userProblemSubs := userProblemSubmissions[username][problem.ProblemId]
+			problemResult := scoreboardserviceutils.BuildScoreboardProblemResult(
 				contest.StartTime,
 				problem,
-				isFirstSolve,
-				problemSubmissions[problem.ProblemId],
+				false,
+				userProblemSubs,
 			)
-			penalties += problemResults[i].PenaltyAttempts
+			problemResults = append(problemResults, problemResult)
 		}
 		scoreboardRows = append(
-			scoreboardRows, domain.ScoreboardRow{
-			Username:       username,
-			Problems: problemResults,
-			Score: scoreboardserviceutils.CalculateScore(problemResults),
-			Penalty:      penalties,
-		})
+				scoreboardRows, domain.ScoreboardRow{
+				Username: username,
+				Score:    scoreboardserviceutils.CalculateScore(problemResults),
+				Problems: problemResults,
+			})
 	}
-
 	slices.SortFunc(scoreboardRows, func(a, b domain.ScoreboardRow) int {
-		if a.Score != b.Score {
-			return int(a.Score - b.Score)
-		}
-		return int(b.Penalty - a.Penalty)
+		return int(a.Score - b.Score)
 	})
 
 	for i := range scoreboardRows {
@@ -105,10 +94,9 @@ func (c *ICPCCalculator) BuildScoreboardSnapshot(
 		contestId,
 		snapshotKind,
 		scoreboardRows,
-	) 
+	)
 	if err != nil {
 		return nil, err
 	}
-
 	return snapshot, nil
 }
