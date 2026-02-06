@@ -12,7 +12,7 @@ import (
 	contestsubmissionserviceimpl "contest/src/service/contest-submission/impl"
 	contestserviceimpl "contest/src/service/contest/impl"
 	problemserviceimpl "contest/src/service/problem/impl"
-	scoreboardservice "contest/src/service/scoreboard"
+	scoreboardserviceimpl "contest/src/service/scoreboard/impl"
 	contestusecase "contest/src/usecase/contest"
 	contestsubmissionusecase "contest/src/usecase/contest-submission"
 	contestsubmissioninteractor "contest/src/usecase/contest-submission/interactor"
@@ -47,8 +47,9 @@ type appCtx struct {
 	contestsubmissionRepo       contestsubmissionrepo.ContestSubmissionRepository
 	contestsubmissionService    contestsubmissionservice.ContestSubmissionService
 	contestsubmissionInteractor contestsubmissionusecase.ContestSubmissionInteractor
-	scoreboardInteractor         scoreboardusecase.ScoreboardInteractor
+	scoreboardInteractor        scoreboardusecase.ScoreboardInteractor
 }
+
 func (ctx *appCtx) GetMainDbConnection() *mongo.Database                { return ctx.database }
 func (ctx *appCtx) GetRedis() *redis.Client                             { return ctx.rdb }
 func (ctx *appCtx) GetContestRepository() contestrepo.ContestRepository { return ctx.contestRepo }
@@ -93,12 +94,7 @@ func NewAppContext(
 		contestsubmissionservice,
 	)
 	scoreboardrepo := scoreboardrepoimpl.NewScoreboardRepository(database, rdb)
-	scoreboardFactory := scoreboardservice.NewScoreboardServiceFactory(
-		contestsubmissionRepo,
-		contestRepo,
-		scoreboardrepo,
-	)
-	scoreboardService := scoreboardFactory.NewScoreboardFactory()
+	scoreboardService := scoreboardserviceimpl.NewScoreboardService(contestsubmissionRepo, contestRepo, scoreboardrepo)
 	scoreboardInteractor := scoreboardinteractor.NewScoreboardInteractor(
 		scoreboardrepo,
 		scoreboardService,
@@ -115,6 +111,6 @@ func NewAppContext(
 		contestsubmissionRepo:       contestsubmissionRepo,
 		contestsubmissionService:    contestsubmissionservice,
 		contestsubmissionInteractor: contestsubmissionInteractor,
-		scoreboardInteractor: scoreboardInteractor,
+		scoreboardInteractor:        scoreboardInteractor,
 	}
 }
