@@ -41,6 +41,7 @@ func main() {
 
 		r.With(middlewares.OptionalAuth).Method("GET", "/", proxy.ContestApiProxy())
 		r.With(middlewares.WithPermission("create_contest")).Method("POST", "/create", proxy.ContestApiProxy())
+		r.With(middlewares.OptionalAuth).Method("POST", "/scoreboard", proxy.ContestApiProxy())
 
 		r.Route("/{contest_id}", func(r chi.Router) {
 			r.With(middlewares.OptionalAuth).Method("GET", "/", proxy.ContestApiProxy())

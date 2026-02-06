@@ -5,18 +5,22 @@ import (
 	contestsubmissionrepo "contest/src/domain/repository/contest-submission"
 	contestsubmissionrepoimpl "contest/src/domain/repository/contest-submission/impl"
 	repository "contest/src/domain/repository/contest/impl"
+	scoreboardrepoimpl "contest/src/domain/repository/scoreboard/impl"
 	"contest/src/infrastructure/config"
 	contestservice "contest/src/service/contest"
 	contestsubmissionservice "contest/src/service/contest-submission"
 	contestsubmissionserviceimpl "contest/src/service/contest-submission/impl"
 	contestserviceimpl "contest/src/service/contest/impl"
 	problemserviceimpl "contest/src/service/problem/impl"
+	scoreboardservice "contest/src/service/scoreboard"
 	contestusecase "contest/src/usecase/contest"
 	contestsubmissionusecase "contest/src/usecase/contest-submission"
 	contestsubmissioninteractor "contest/src/usecase/contest-submission/interactor"
 	contestinteractor "contest/src/usecase/contest/interactor"
 	contestantusecase "contest/src/usecase/contestant"
 	contestantinteractor "contest/src/usecase/contestant/interactor"
+	scoreboardusecase "contest/src/usecase/scoreboard"
+	scoreboardinteractor "contest/src/usecase/scoreboard/interactor"
 
 	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -30,6 +34,7 @@ type AppContext interface {
 	GetContestService() contestservice.ContestService
 	GetContestantInteractor() contestantusecase.ContestantInteractor
 	GetContestSubmissionInteractor() contestsubmissionusecase.ContestSubmissionInteractor
+	GetScoreboardInteractor() scoreboardusecase.ScoreboardInteractor
 }
 
 type appCtx struct {
@@ -42,8 +47,8 @@ type appCtx struct {
 	contestsubmissionRepo       contestsubmissionrepo.ContestSubmissionRepository
 	contestsubmissionService    contestsubmissionservice.ContestSubmissionService
 	contestsubmissionInteractor contestsubmissionusecase.ContestSubmissionInteractor
+	scoreboardInteractor         scoreboardusecase.ScoreboardInteractor
 }
-
 func (ctx *appCtx) GetMainDbConnection() *mongo.Database                { return ctx.database }
 func (ctx *appCtx) GetRedis() *redis.Client                             { return ctx.rdb }
 func (ctx *appCtx) GetContestRepository() contestrepo.ContestRepository { return ctx.contestRepo }
@@ -56,6 +61,9 @@ func (ctx *appCtx) GetContestantInteractor() contestantusecase.ContestantInterac
 }
 func (ctx *appCtx) GetContestSubmissionInteractor() contestsubmissionusecase.ContestSubmissionInteractor {
 	return ctx.contestsubmissionInteractor
+}
+func (ctx *appCtx) GetScoreboardInteractor() scoreboardusecase.ScoreboardInteractor {
+	return ctx.scoreboardInteractor
 }
 func NewAppContext(
 	database *mongo.Database,
@@ -84,6 +92,18 @@ func NewAppContext(
 	contestsubmissionInteractor := contestsubmissioninteractor.NewContestSubmissionInteractor(
 		contestsubmissionservice,
 	)
+	scoreboardrepo := scoreboardrepoimpl.NewScoreboardRepository(database, rdb)
+	scoreboardFactory := scoreboardservice.NewScoreboardServiceFactory(
+		contestsubmissionRepo,
+		contestRepo,
+		scoreboardrepo,
+	)
+	scoreboardService := scoreboardFactory.NewScoreboardFactory()
+	scoreboardInteractor := scoreboardinteractor.NewScoreboardInteractor(
+		scoreboardrepo,
+		scoreboardService,
+		contestRepo,
+	)
 
 	return &appCtx{
 		database:                    database,
@@ -95,5 +115,6 @@ func NewAppContext(
 		contestsubmissionRepo:       contestsubmissionRepo,
 		contestsubmissionService:    contestsubmissionservice,
 		contestsubmissionInteractor: contestsubmissionInteractor,
+		scoreboardInteractor: scoreboardInteractor,
 	}
 }

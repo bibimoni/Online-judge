@@ -7,7 +7,7 @@ import (
 )
 
 // ScoreboardCalculator is the interface for calculating scoreboards
-type ScoreboardCalculator interface {
+type ScoreboardService interface {
 	// BuildScoreboardSnapshot computes the scoreboard from contest and submissions
 	BuildScoreboardSnapshot(ctx context.Context, contestId string, includeVirtual bool, includeUnrated bool) (*domain.ScoreboardSnapshot, error)
 
