@@ -65,7 +65,7 @@ func ParseProblemStruct(problemId uint64, xml *os.File) (models.Problem, error) 
 		return problem, err
 	}
 
-	problem.ScoringMode = "OI"
+	problem.ScoringMode = "IOI"
 
 	// Checking if ICPC type
 	if len(groups) == 0 {
@@ -85,7 +85,7 @@ func ParseProblemStruct(problemId uint64, xml *os.File) (models.Problem, error) 
 		}
 	}
 
-	if problem.ScoringMode == "OI" {
+	if problem.ScoringMode == "IOI" {
 		// OI-style problem
 
 		for _, group := range groups {
