@@ -32,10 +32,33 @@ func NewProblemService() (problem.ProblemService, error) {
 	return NewProblemServiceImpl()
 }
 
-func (ps *ProblemServiceImpl) Get(ctx context.Context, id string) (*problem.ProblemServiceGetOutput, error) {
+func (ps *ProblemServiceImpl) GetLatestVersion(ctx context.Context, problemId string) (string, error) {
 	req := common.APIRequest{
 		Method:  "GET",
-		URL:     ps.problemServerAddr + "get/" + id + "/" + ProblemInfoFilename,
+		URL:     ps.problemServerAddr + "latest-version?problemId=" + problemId,
+		Timeout: 30 * time.Second,
+	}
+
+	result, err := common.SendRequest[problem.LatestVersionResponse](ctx, req)
+	if err != nil {
+		return "", err
+	}
+	if result == nil || !result.Success {
+		return "", fmt.Errorf("failed to get latest version for problem %s", problemId)
+	}
+
+	return result.Data, nil
+}
+
+func (ps *ProblemServiceImpl) Get(ctx context.Context, id string) (*problem.ProblemServiceGetOutput, error) {
+	version, err := ps.GetLatestVersion(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get latest version for problem %s: %v", id, err)
+	}
+
+	req := common.APIRequest{
+		Method:  "GET",
+		URL:     ps.problemServerAddr + "get/" + id + "/" + version + "/" + ProblemInfoFilename,
 		Timeout: 60 * time.Second,
 	}
 
@@ -53,13 +76,13 @@ func (ps *ProblemServiceImpl) Get(ctx context.Context, id string) (*problem.Prob
 	return result, nil
 }
 
-func (ps *ProblemServiceImpl) GetTestCaseDirAddr(problemId string, tcType problem.TestCaseType) (string, error) {
+func (ps *ProblemServiceImpl) GetTestCaseDirAddr(problemId, version string, tcType problem.TestCaseType) (string, error) {
 	cfg, err := config.Load()
 	if err != nil {
 		return "", err
 	}
 
-	stringAddr := cfg.ProblemsDir + "/" + problemId + "/tests"
+	stringAddr := cfg.ProblemsDir + "/" + problemId + "/" + version + "/tests"
 	switch tcType {
 	case problem.INPUT:
 		stringAddr += "/input/"
@@ -74,8 +97,8 @@ func (ps *ProblemServiceImpl) GetTestCaseDirAddr(problemId string, tcType proble
 	return stringAddr, nil
 }
 
-func (ps *ProblemServiceImpl) GetTestCaseAddr(problemId string, tcType problem.TestCaseType, testNum int) (string, error) {
-	stringAddr, err := ps.GetTestCaseDirAddr(problemId, tcType)
+func (ps *ProblemServiceImpl) GetTestCaseAddr(problemId, version string, tcType problem.TestCaseType, testNum int) (string, error) {
+	stringAddr, err := ps.GetTestCaseDirAddr(problemId, version, tcType)
 	if err != nil {
 		return "", err
 	}
@@ -90,7 +113,7 @@ func (ps *ProblemServiceImpl) GetTestCaseAddr(problemId string, tcType problem.T
 	}
 
 	stringAddr += strconv.Itoa(testNum)
-	remoteURL := fmt.Sprintf("%sget/%s/tests/%s/%s", cfg.ProblemServerAddr, problemId, strTcType, strconv.Itoa(testNum))
+	remoteURL := fmt.Sprintf("%sget/%s/%s/tests/%s/%s", cfg.ProblemServerAddr, problemId, version, strTcType, strconv.Itoa(testNum))
 
 	log := config.GetLogger()
 	log.Debug().Msgf("string address: %s, url: %s", stringAddr, remoteURL)
@@ -99,53 +122,53 @@ func (ps *ProblemServiceImpl) GetTestCaseAddr(problemId string, tcType problem.T
 	return utils.GetFileWithCache(context.Background(), stringAddr, remoteURL)
 }
 
-func (ps *ProblemServiceImpl) GetCheckerAddr(problemId string) (string, error) {
+func (ps *ProblemServiceImpl) GetCheckerAddr(problemId, version string) (string, error) {
 	cfg, err := config.Load()
 	if err != nil {
 		return "", err
 	}
 
-	stringAddr := cfg.ProblemsDir + "/" + problemId
+	stringAddr := cfg.ProblemsDir + "/" + problemId + "/" + version
 	err = utils.EnsureProblemDirectory(stringAddr)
 	if err != nil {
 		return "", err
 	}
 	stringAddr = stringAddr + "/checker"
-	remoteURL := fmt.Sprintf("%sget/%s/checker", cfg.ProblemServerAddr, problemId)
+	remoteURL := fmt.Sprintf("%sget/%s/%s/checker", cfg.ProblemServerAddr, problemId, version)
 
 	// return stringAddr, nil
 	return utils.GetFileWithCache(context.Background(), stringAddr, remoteURL)
 }
 
-func (ps *ProblemServiceImpl) GetInteractorAddr(problemId string) (string, error) {
+func (ps *ProblemServiceImpl) GetInteractorAddr(problemId, version string) (string, error) {
 	cfg, err := config.Load()
 	if err != nil {
 		return "", err
 	}
 
-	stringAddr := cfg.ProblemsDir + "/" + problemId
+	stringAddr := cfg.ProblemsDir + "/" + problemId + "/" + version
 	err = utils.EnsureProblemDirectory(stringAddr)
 	if err != nil {
 		return "", err
 	}
 	stringAddr = stringAddr + "/interactor"
-	remoteURL := fmt.Sprintf("%sget/%s/interactor", cfg.ProblemServerAddr, problemId)
+	remoteURL := fmt.Sprintf("%sget/%s/%s/interactor", cfg.ProblemServerAddr, problemId, version)
 	// return stringAddr, nil
 	return utils.GetFileWithCache(context.Background(), stringAddr, remoteURL)
 }
 
-func (ps *ProblemServiceImpl) GetCrossRunAddr(problemId string) (string, error) {
+func (ps *ProblemServiceImpl) GetCrossRunAddr(problemId, version string) (string, error) {
 	cfg, err := config.Load()
 	if err != nil {
 		return "", err
 	}
 
-	stringAddr := cfg.ProblemsDir + "/" + problemId
+	stringAddr := cfg.ProblemsDir + "/" + problemId + "/" + version
 	err = utils.EnsureProblemDirectory(stringAddr)
 	if err != nil {
 		return "", err
 	}
 	stringAddr = stringAddr + "/CrossRun.jar"
-	remoteURL := fmt.Sprintf("%sget/%s/CrossRun.jar", cfg.ProblemServerAddr, problemId)
+	remoteURL := fmt.Sprintf("%sget/%s/%s/CrossRun.jar", cfg.ProblemServerAddr, problemId, version)
 	return utils.GetFileWithCache(context.Background(), stringAddr, remoteURL)
 }

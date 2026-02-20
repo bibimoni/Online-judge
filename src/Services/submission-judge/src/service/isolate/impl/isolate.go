@@ -90,8 +90,8 @@ func (ir *IsolateServiceImpl) Init(i *domain.Isolate) error {
 }
 
 // This method added input directory to the run config, this also verify if the directory exists
-func (ir *IsolateServiceImpl) addInputMappedDir(rc *domain.RunConfig, problemId string) error {
-	inputDirAddr, err := ir.problemService.GetTestCaseDirAddr(problemId, problem.INPUT)
+func (ir *IsolateServiceImpl) addInputMappedDir(rc *domain.RunConfig, problemId, version string) error {
+	inputDirAddr, err := ir.problemService.GetTestCaseDirAddr(problemId, version, problem.INPUT)
 	if err != nil {
 		return err
 	}
@@ -202,7 +202,7 @@ func (ir *IsolateServiceImpl) RunCmdStrNoStream(i *domain.Isolate, rc domain.Run
 	i.Logger.Info().Msgf("Start running command!, toRun: %s", toRun)
 
 	addWorkingMappedDir(i, &rc, req.SubmissionId)
-	ir.addInputMappedDir(&rc, req.ProblemId)
+	ir.addInputMappedDir(&rc, req.ProblemId, req.ProblemVersion)
 	i.Logger.Info().Msgf("Run config: %v", rc)
 
 	args, err := buildArgs(i, rc, req.SubmissionId)

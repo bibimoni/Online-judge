@@ -201,7 +201,7 @@ func (js *JudgeServiceImpl) isCompilationSuccessful(vert *judge.RunVerdict) bool
 }
 
 func (js *JudgeServiceImpl) prepChecker(ctx context.Context, i *domain.Isolate, req *isolateservice.SubmissionRequest, vert *judge.RunVerdict) error {
-	checkerLocation, err := js.problemService.GetCheckerAddr(req.ProblemId)
+	checkerLocation, err := js.problemService.GetCheckerAddr(req.ProblemId, req.ProblemVersion)
 	if err != nil {
 		updateErr := js.updateFinal(ctx, req.EvalId, domain.JUDGEMENT_FAILED, vert.Time, vert.MaxRss, 0, 0, vert.Message)
 		if updateErr != nil {
@@ -218,7 +218,7 @@ func (js *JudgeServiceImpl) prepChecker(ctx context.Context, i *domain.Isolate, 
 }
 
 func (js *JudgeServiceImpl) prepInteractor(ctx context.Context, i *domain.Isolate, req *isolateservice.SubmissionRequest, vert *judge.RunVerdict) error {
-	interactorLocation, err := js.problemService.GetInteractorAddr(req.ProblemId)
+	interactorLocation, err := js.problemService.GetInteractorAddr(req.ProblemId, req.ProblemVersion)
 	if err != nil {
 		updateErr := js.updateFinal(ctx, req.EvalId, domain.JUDGEMENT_FAILED, vert.Time, vert.MaxRss, 0, 0, vert.Message)
 		if updateErr != nil {
@@ -226,7 +226,7 @@ func (js *JudgeServiceImpl) prepInteractor(ctx context.Context, i *domain.Isolat
 		}
 		return err
 	}
-	crossrunLocation, err := js.problemService.GetCrossRunAddr(req.ProblemId)
+	crossrunLocation, err := js.problemService.GetCrossRunAddr(req.ProblemId, req.ProblemVersion)
 	if err != nil {
 		updateErr := js.updateFinal(ctx, req.EvalId, domain.JUDGEMENT_FAILED, vert.Time, vert.MaxRss, 0, 0, vert.Message)
 		if updateErr != nil {
@@ -292,12 +292,12 @@ func (js *JudgeServiceImpl) executeTest(
 	problemInfo *problem.ProblemServiceGetOutput,
 	tc int,
 ) (*judge.RunVerdict, string, domain.Verdict, error) {
-	tcInputAddr, err := js.problemService.GetTestCaseAddr(req.ProblemId, problem.TestCaseType(problem.INPUT), tc)
+	tcInputAddr, err := js.problemService.GetTestCaseAddr(req.ProblemId, req.ProblemVersion, problem.TestCaseType(problem.INPUT), tc)
 	if err != nil {
 		return nil, "", "", err
 	}
 
-	tcAnsAddtr, err := js.problemService.GetTestCaseAddr(req.ProblemId, problem.TestCaseType(problem.OUTPUT), tc)
+	tcAnsAddtr, err := js.problemService.GetTestCaseAddr(req.ProblemId, req.ProblemVersion, problem.TestCaseType(problem.OUTPUT), tc)
 	if err != nil {
 		return nil, "", "", err
 	}
@@ -397,8 +397,8 @@ func (js *JudgeServiceImpl) evaluateTest(
 	}
 
 	// error is skipped because it already checked in executeTest
-	tcInputAddr, _ := js.problemService.GetTestCaseAddr(req.ProblemId, problem.TestCaseType(problem.INPUT), tc)
-	tcAnsAddtr, _ := js.problemService.GetTestCaseAddr(req.ProblemId, problem.TestCaseType(problem.OUTPUT), tc)
+	tcInputAddr, _ := js.problemService.GetTestCaseAddr(req.ProblemId, req.ProblemVersion, problem.TestCaseType(problem.INPUT), tc)
+	tcAnsAddtr, _ := js.problemService.GetTestCaseAddr(req.ProblemId, req.ProblemVersion, problem.TestCaseType(problem.OUTPUT), tc)
 	checkerLocation := judgeutils.GetSubmissionCheckerAddr(i, req)
 
 	verdict, msg, score, err := js.checkVerdict(vert, checkerLocation, tcInputAddr, outaddr, tcAnsAddtr)
