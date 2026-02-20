@@ -34,7 +34,7 @@ func NewScoreboardService(
 	contestrepo contestrepo.ContestRepository,
 	scoreboardrepo scoreboardrepo.ScoreboardRepository,
 ) scoreboardservice.ScoreboardService {
-	return NewScoreboardService(contestsubmissionrepo, contestrepo, scoreboardrepo)
+	return NewScoreboardServiceImpl(contestsubmissionrepo, contestrepo, scoreboardrepo)
 }
 
 func (s *ScoreboardServiceImpl) BuildScoreboardSnapshot(

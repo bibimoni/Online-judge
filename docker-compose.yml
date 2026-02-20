@@ -63,7 +63,7 @@ services:
   problem:
     build:
       context: ./src/Services/problem/
-      target: dev
+      # target: dev
     platform: linux/amd64
     container_name: problem
     ports:

@@ -15,7 +15,6 @@ type SubmissionUsecase interface {
 	SubmitSubmission(ctx context.Context, input *SubmitSubmissionInput) (output *SubmitSubmissionResponse, err error)
 	GetSubmission(ctx context.Context, input *GetSubmissionInput) (output *GetSubmissionOutput, err error)
 	GetProblemSubmission(ctx context.Context, input *GetProblemSubmissionInput)
-	// TODO! add contest_id and upsert back to contest
 	RejudgeSubmission(ctx context.Context, input *RejudgeSubmissionInput) error
 	InternalContestSubmitSubmission(ctx context.Context, input *InternalContestSubmitSubmissionInput) (output *SubmitSubmissionResponse, err error)
 }
