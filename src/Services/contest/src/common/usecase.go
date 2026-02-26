@@ -26,7 +26,6 @@ func InvokeUseCase[Input any, Output any](
 			WriteOutput(c, nil, err)
 			return
 		}
-
 		output, err := Invoke(c.Request.Context(), input)
 
 		if err != nil {

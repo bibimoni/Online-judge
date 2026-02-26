@@ -93,7 +93,7 @@ func GetFileWithCache(
 
 	if exists {
 		isNewer, err := CheckIfRemoteIsNewer(ctx, remoteURL, info.ModTime())
-		config.GetLogger().Debug().Msgf("Is newer ?: %b", isNewer)
+		config.GetLogger().Debug().Msgf("Is newer ?: %t", isNewer)
 		if err != nil {
 			config.GetLogger().Warn().Err(err).Msgf("Failed to check for freshness for %s, using cached version", localPath)
 			return localPath, nil

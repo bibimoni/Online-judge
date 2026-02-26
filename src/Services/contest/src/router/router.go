@@ -5,6 +5,7 @@ import (
 	contestcontroller "contest/src/controller/contest"
 	contestsubmissioncontroller "contest/src/controller/contest-submission"
 	contestantcontroller "contest/src/controller/contestant"
+	scoreboardcontroller "contest/src/controller/scoreboard"
 	"contest/src/middleware"
 
 	"github.com/gin-gonic/gin"
@@ -14,12 +15,15 @@ func RegisterRouter(group *gin.RouterGroup, appContext components.AppContext) {
 	contestInteractor := appContext.GetContestInteractor()
 	contestantInteractor := appContext.GetContestantInteractor()
 	contestsubmissionInteractor := appContext.GetContestSubmissionInteractor()
+	scoreboardInteractor := appContext.GetScoreboardInteractor()
 	contest := group.Group("/contest")
 	{
 		auth := contest.Group("")
 		auth.Use(middleware.OptionalAuth())
 		auth.GET("", contestcontroller.GetAllContest(contestInteractor))
 		auth.GET("/:contest_id", contestcontroller.GetContest(contestInteractor))
+
+		auth.POST("/scoreboard", scoreboardcontroller.BuildScoreboardSnapshot(scoreboardInteractor))
 	}
 	{
 		// auth route for contest

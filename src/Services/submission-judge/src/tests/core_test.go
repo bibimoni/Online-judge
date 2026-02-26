@@ -34,14 +34,14 @@ func TestEndToEndJudgingFlow(t *testing.T) {
  */
 #include <bits/stdc++.h>
 using namespace std;
- 
+
 #ifdef DEBUG
 #include </Users/distiled/codeStuff/templates/debug.h>
 #else
 #define dbg(x...)
 #endif
 #define int int64_t
- 
+
 signed main() {
   ios::sync_with_stdio(false);
   cin.tie(0);
@@ -56,7 +56,7 @@ signed main() {
     vector<int> w(n);
     for (int i = 0; i < n; i++)
       cin >> w[i];
- 
+
     int ans = 0;
     for (int i = 0; i < n; i++) {
       ans += ((w[i] + r - 1) / r) * ((h[i] + c - 1) / c);
@@ -77,11 +77,11 @@ using namespace std;
 signed main() {
   ios::sync_with_stdio(false);
   cin.tie(0);
-  
+
   // Allocate a huge array to trigger MLE
   // Allocating ~500MB (500 million integers * 8 bytes = 4GB)
   vector<long long> huge_array(500000000, 0);
-  
+
   int tt;
   cin >> tt;
   while (tt--) {
@@ -93,7 +93,7 @@ signed main() {
     vector<int> w(n);
     for (int i = 0; i < n; i++)
       cin >> w[i];
-    
+
     long long ans = 0;
     for (int i = 0; i < n; i++) {
       ans += ((w[i] + r - 1) / r) * ((h[i] + c - 1) / c);
@@ -116,14 +116,14 @@ signed main() {
  */
 #include <bits/stdc++.h>
 using namespace std;
- 
+
 #ifdef DEBUG
 #include </Users/distiled/codeStuff/templates/debug.h>
 #else
 #define dbg(x...)
 #endif
 #define int int64_t
- 
+
 signed main() {
   ios::sync_with_stdio(false);
   cin.tie(0);
@@ -139,7 +139,7 @@ signed main() {
     vector<int> w(n);
     for (int i = 0; i < n; i++)
       cin >> w[i];
- 
+
     int ans = 0;
     for (int i = 0; i < n; i++) {
       ans += ((w[i] + r - 1) / r) * ((h[i] + c - 1) / c);
@@ -159,16 +159,16 @@ signed main() {
  */
 #include<bits/stdc++.h>
 using namespace std;
- 
+
 #ifdef DEBUG
 #include </Users/distiled/codeStuff/templates/debug.h>
 #else
 #define dbg(x...)
 #endif
 #define int int64_t
- 
+
 signed main() {
-  ios::sync_with_stdio(false); 
+  ios::sync_with_stdio(false);
   cin.tie(0);
   int tt;
   cin >> tt;
@@ -186,7 +186,7 @@ signed main() {
       }
       mark[int(1) << j] = -2;
     }
- 
+
     int bound = 0;
     for (int i = 1, cnt = 0; i <= n + BITS; i++) {
       if (mark[i] == -1) {
@@ -197,7 +197,7 @@ signed main() {
         break;
       }
     }
- 
+
     for (int j = 0; j < BITS; j++) {
       if ((int(1) << j) > n + BITS) {
         break;
@@ -214,7 +214,7 @@ signed main() {
       }
       xor_bits.push_back(tmp);
     }
- 
+
     int c = xor_bits.size();
     cout << "? " << c << '\n';
     cerr << "? " << c << '\n';
@@ -232,14 +232,14 @@ signed main() {
       cout.flush();
       cerr.flush();
     }
- 
+
     vector<int> nm(n + c + 1);
     for (int i = 1; i <= n + c; i++) {
       cin >> nm[i];
       cerr << nm[i] << ' ';
     }
     cerr << '\n';
-    
+
     int ans = 0;
     for (int j = 0; j < c; j++) {
       int cur = nm[int(1) << j];
@@ -252,7 +252,7 @@ signed main() {
     }
     cerr << "! " << ans << "\n";
     cout << "! " << ans << '\n';
-    cout.flush(); 
+    cout.flush();
   }
 }`,
 			Language:        "cpp20",
@@ -264,26 +264,26 @@ signed main() {
 	var accessToken string
 	submissionIDs := make([]string, 0)
 
-	t.Run("1_InitializeProblems", func(t *testing.T) {
-		t.Log("Step 1: Initializing problems 445985 and 440176...")
+	// t.Run("1_InitializeProblems", func(t *testing.T) {
+	// 	t.Log("Step 1: Initializing problems 445985 and 440176...")
 
-		// Initialize problem 445985
-		if err := initializeProblem(problemServiceURL, "445985"); err != nil {
-			t.Logf("Warning: Failed to initialize problem 445985: %v (may already exist)", err)
-		} else {
-			t.Log("✓ Problem 445985 initialized successfully")
-		}
+	// 	// Initialize problem 445985
+	// 	if err := initializeProblem(problemServiceURL, "445985"); err != nil {
+	// 		t.Logf("Warning: Failed to initialize problem 445985: %v (may already exist)", err)
+	// 	} else {
+	// 		t.Log("✓ Problem 445985 initialized successfully")
+	// 	}
 
-		// Initialize problem 440176
-		if err := initializeProblem(problemServiceURL, "440176"); err != nil {
-			t.Logf("Warning: Failed to initialize problem 440176: %v (may already exist)", err)
-		} else {
-			t.Log("✓ Problem 440176 initialized successfully")
-		}
+	// 	// Initialize problem 440176
+	// 	if err := initializeProblem(problemServiceURL, "440176"); err != nil {
+	// 		t.Logf("Warning: Failed to initialize problem 440176: %v (may already exist)", err)
+	// 	} else {
+	// 		t.Log("✓ Problem 440176 initialized successfully")
+	// 	}
 
-		// Wait a bit for problems to be fully ready
-		time.Sleep(3 * time.Second)
-	})
+	// 	// Wait a bit for problems to be fully ready
+	// 	time.Sleep(3 * time.Second)
+	// })
 
 	t.Run("2_AuthenticateAdmin", func(t *testing.T) {
 		t.Log("Step 2: Authenticating with admin/bkacbkac...")

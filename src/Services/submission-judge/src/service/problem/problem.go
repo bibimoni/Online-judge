@@ -8,11 +8,17 @@ import (
 // served by the Problem service (the name might be a little confusing)
 type ProblemService interface {
 	Get(ctx context.Context, id string) (*ProblemServiceGetOutput, error)
-	GetTestCaseAddr(problemId string, tcType TestCaseType, testNum int) (string, error)
-	GetTestCaseDirAddr(problemId string, tcType TestCaseType) (string, error)
-	GetCheckerAddr(problemId string) (string, error)
-	GetInteractorAddr(problemId string) (string, error)
-	GetCrossRunAddr(problemId string) (string, error)
+	GetLatestVersion(ctx context.Context, problemId string) (string, error)
+	GetTestCaseAddr(problemId, version string, tcType TestCaseType, testNum int) (string, error)
+	GetTestCaseDirAddr(problemId, version string, tcType TestCaseType) (string, error)
+	GetCheckerAddr(problemId, version string) (string, error)
+	GetInteractorAddr(problemId, version string) (string, error)
+	GetCrossRunAddr(problemId, version string) (string, error)
+}
+
+type LatestVersionResponse struct {
+	Data    string `json:"data"`
+	Success bool   `json:"success"`
 }
 
 type TestCaseType string

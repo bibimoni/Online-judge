@@ -21,6 +21,7 @@ func OptionalAuth(next http.Handler) http.Handler {
 
 		if r.Header.Get("Authorization") == "" {
 			next.ServeHTTP(w, r)
+			return
 		}
 
 		res, err := common.SendRequest[AuthResponseBody](r.Context(), common.APIRequest{

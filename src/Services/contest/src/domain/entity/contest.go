@@ -171,11 +171,11 @@ func (contest *Contest) CanViewContest(username, role string) bool {
 	return false
 }
 
-func (contest *Contest) hasStarted() bool {
+func (contest *Contest) HasStarted() bool {
 	return time.Now().After(contest.StartTime)
 }
 
-func (contest *Contest) hasEnded() bool {
+func (contest *Contest) HasEnded() bool {
 	return time.Now().After(contest.EndTime)
 }
 
@@ -193,4 +193,13 @@ func (contest *Contest) canSeeScoreboard(username string) bool {
 	// }
 
 	return false
+}
+
+func (contest *Contest) CanViewScoreboard(username, role string) bool {
+	if contest.IsContestManager(username) || role == common.AdminRole {
+		return true
+	} else if contest.ScoreboardVisibility == ScoreboardHidden {
+		return false
+	} 
+	return contest.HasStarted()
 }
