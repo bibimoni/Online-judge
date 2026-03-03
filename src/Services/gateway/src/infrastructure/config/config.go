@@ -20,6 +20,7 @@ type Config struct {
 		Submission string
 		Auth       string
 		Problem    string
+		Contest    string
 	}
 }
 
@@ -41,9 +42,10 @@ func Load() *Config {
 	cfg.Server.ReadTimeout = time.Second * 15
 	cfg.Server.WriteTimeout = time.Second * 15
 
-	cfg.Endpoints.Submission = getEnv("GATEWAY_SUBMISSION_ENDPOINT", "")
-	cfg.Endpoints.Auth = getEnv("GATEWAY_AUTH_ENDPOINT", "")
-	cfg.Endpoints.Problem = getEnv("GATEWAY_PROBLEM_ENDPOINT", "")
+	cfg.Endpoints.Submission = getEnv("SUBMISSION_ENDPOINT", "")
+	cfg.Endpoints.Auth = getEnv("AUTH_ENDPOINT", "")
+	cfg.Endpoints.Problem = getEnv("PROBLEM_ENDPOINT", "")
+	cfg.Endpoints.Contest = getEnv("CONTEST_ENDPOINT", "")
 	return cfg
 }
 

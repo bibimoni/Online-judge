@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	domain "github.com/bibimoni/Online-judge/submission-judge/src/domain/entitiy"
@@ -119,7 +120,8 @@ func buildArgs(i *domain.Isolate, rc domain.RunConfig, submissionId string) ([]s
 	if !i.Inited {
 		return []string{}, isolateservice.ErrorIsolateNotInitialized
 	}
-	args := []string{"isolate", "-b", strconv.Itoa(i.ID)}
+	// --cg MUST come before -b flag
+	args := []string{"isolate", "--cg", "-b", strconv.Itoa(i.ID)}
 
 	if rc.MaxProcesses > 0 {
 		args = append(args, fmt.Sprintf("--processes=%d", rc.MaxProcesses))
@@ -134,20 +136,22 @@ func buildArgs(i *domain.Isolate, rc domain.RunConfig, submissionId string) ([]s
 		args = append(args, fmt.Sprintf("--env=%s", rc.Env[ind]))
 	}
 	for _, rule := range rc.DirectoryMaps {
-		arg := fmt.Sprintf("--dir=%s=%s", rule.Inside, rule.Outside)
+		var arg strings.Builder
+		fmt.Fprintf(&arg, "--dir=%s=%s", rule.Inside, rule.Outside)
 		for _, opt := range rule.Options {
-			arg += ":" + string(opt)
+			arg.WriteString(":" + string(opt))
 		}
-		args = append(args, arg)
+		args = append(args, arg.String())
 	}
 
 	if rc.TimeLimit > 0 {
 		ms := rc.TimeLimit / time.Millisecond
 		args = append(args, fmt.Sprintf("--time=%d.%d", ms/1000, ms%1000))
-		args = append(args, fmt.Sprintf("--wall-time=%d.%d", ms/1000, ms%1000))
+		args = append(args, fmt.Sprintf("--wall-time=%d.%d", (5*ms+2000)/1000, (5*ms+2000)%1000))
 	}
+
 	if rc.MemoryLimit > 0 {
-		args = append(args, fmt.Sprintf("--mem=%d", int(rc.MemoryLimit/memory.KiB)))
+		args = append(args, fmt.Sprintf("--cg-mem=%d", int(rc.MemoryLimit/memory.KiB)))
 	}
 
 	if len(rc.Input) > 0 {
@@ -158,6 +162,11 @@ func buildArgs(i *domain.Isolate, rc domain.RunConfig, submissionId string) ([]s
 	if len(rc.Output) > 0 {
 		args = append(args, "-o")
 		args = append(args, rc.Output)
+	}
+
+	// Redirect stderr to /dev/null
+	if rc.Stderr == nil {
+		args = append(args, "-r", "/dev/null")
 	}
 
 	if rc.Meta {

@@ -46,35 +46,46 @@ FUTURE:
 - Automatically get the latest package of the problem
 */
 func AddProblem(ProblemId uint64) error {
-	if found, err := CheckAlreadyAdded(ProblemId); err != nil {
-		return fmt.Errorf("error while checking the problem repository: %s", err.Error())
-	} else if found {
-		return fmt.Errorf("problem already existed in the repository")
-	}
+	// if found, err := CheckAlreadyAdded(ProblemId); err != nil {
+	// 	return fmt.Errorf("error while checking the problem repository: %s", err.Error())
+	// } else if found {
+	// 	return fmt.Errorf("problem already existed in the repository")
+	// }
 
 	var PackageId uint64
 	PackageId, err := polygon.GetLastestPackage(ProblemId)
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting latest package: %s", err.Error())
 	}
 
 	if err := polygon.DownloadPackage(ProblemId, PackageId); err != nil {
-		return err
+		return fmt.Errorf("error downloading package: %s", err.Error())
 	}
 
-	file, err := os.Open(fmt.Sprintf("%s/%d/problem.json", os.Getenv("PROBLEM_STORAGE_DIR"), ProblemId))
-	if err != nil {
-		return err
+	var file *os.File
+	if latestVersionNumber, err := polygon.GetLatestVersionNumber(ProblemId); err == nil {
+		file, err = os.Open(fmt.Sprintf("%s/%d/v%d/problem.json", os.Getenv("PROBLEM_STORAGE_DIR"), ProblemId, latestVersionNumber))
+		if err != nil {
+			return fmt.Errorf("error opening problem.xml: %s", err.Error())
+		}
+		defer file.Close()
+	} else {
+		return nil
 	}
-	defer file.Close()
 
 	var problem models.Problem
 	if err := json.NewDecoder(file).Decode(&problem); err != nil {
-		return err
+		return fmt.Errorf("error decoding problem.xml: %s", err.Error())
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+
+	filter := bson.M{"problem-id": int64(ProblemId)}
+	if _, err := db.Database("problem-db").Collection("Problems").DeleteMany(ctx, filter); err != nil {
+		return fmt.Errorf("error deleting old version of problem: %s", err.Error())
+	}
+
 	if _, err := db.Database("problem-db").Collection("Problems").InsertOne(ctx, problem); err != nil {
 		return fmt.Errorf("error saving problem to database: %s", err.Error())
 	}

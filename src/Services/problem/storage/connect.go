@@ -32,7 +32,7 @@ func GetMongoDbClient() error {
 		return fmt.Errorf("failed to connect to MongoDB: %w", err)
 	}
 
-	pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	pingCtx, pingCancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer pingCancel()
 
 	if err = client.Ping(pingCtx, nil); err != nil {

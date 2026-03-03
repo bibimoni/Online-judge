@@ -1,10 +1,11 @@
 package middlewares
 
 import (
-	"bytes"
+	// "bytes"
 	"encoding/json"
 	"fmt"
-	"io"
+
+	// "io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -15,62 +16,68 @@ import (
 )
 
 type AuthResponseBody struct {
-	Code int      `json:"code,omitempty"`
-	User UserType `json:"user"`
-}
-
-type UserType struct {
-	Username string `json:"username,omitempty"`
-	Id       int    `json:"id,omitempty"`
+	Username    string   `json:"username,omitempty"`
+	Id          int      `json:"id,omitempty"`
+	Role        string   `json:"role,omitempty"`
+	Permissions []string `json:"permissions,omitempty"`
 }
 
 func WithAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authURL := config.Load().Endpoints.Auth
+		config.GetLogger().Debug().Msgf("auth url: %s", authURL)
 
-		token := extractBearer(r.Header.Get("Authorization"))
+		// token := extractBearer(r.Header.Get("Authorization"))
 		res, err := common.SendRequest[AuthResponseBody](r.Context(), common.APIRequest{
-			Method:  "GET",
-			URL:     fmt.Sprintf("%s/auth/validate/%s", authURL, token),
+			Method:  "POST",
+			URL:     fmt.Sprintf("%s/auth/validate", authURL),
 			Timeout: 10 * time.Second,
+			Headers: map[string]string{
+				"Authorization": r.Header.Get("Authorization"),
+				"Content-Type":  "application/json",
+			}, Body: nil,
 		})
 
 		if err != nil {
-			if res == nil {
-				http.Error(w, "An error occured", http.StatusInternalServerError)
+			if res != nil {
+				http.Error(w, "Auth Service Error", res.StatusCode)
 				return
 			}
-			http.Error(w, "An error occured", res.StatusCode)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 
-		// Add username field into body
-		org, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, "Can't read body", http.StatusBadRequest)
-			return
-		}
-		defer r.Body.Close()
+		// org, err := io.ReadAll(r.Body)
+		// if err != nil {
+		// 	http.Error(w, "Can't read body", http.StatusBadRequest)
+		// 	return
+		// }
+		// defer r.Body.Close()
+		//
+		// var obj map[string]any
+		// if len(org) > 0 {
+		// 	if err := json.Unmarshal(org, &obj); err != nil {
+		// 		http.Error(w, "Invalid Json", http.StatusBadRequest)
+		// 	}
+		// } else {
+		// 	obj = make(map[string]any)
+		// }
 
-		var obj map[string]any
-		if len(org) > 0 {
-			if err := json.Unmarshal(org, &obj); err != nil {
-				http.Error(w, "Invalid Json", http.StatusBadRequest)
-			}
-		} else {
-			obj = make(map[string]any)
-		}
-		obj["username"] = res.PayLoad.User.Username
+		r.Header.Set("X-User-Id", strconv.Itoa(res.PayLoad.Id))
+		r.Header.Set("X-User-Role", res.PayLoad.Role)
+		permsJson, _ := json.Marshal(res.PayLoad.Permissions)
+		r.Header.Set("X-User-Permissions", string(permsJson))
+		r.Header.Set("X-Username", res.PayLoad.Username)
 
-		newBytes, _ := json.Marshal(obj)
+		// obj["username"] = res.PayLoad.Username
+		// newBytes, _ := json.Marshal(obj)
 
-		r.Body = io.NopCloser(bytes.NewReader(newBytes))
+		// r.Body = io.NopCloser(bytes.NewReader(newBytes))
+		//
+		// r.ContentLength = int64(len(newBytes))
+		//
+		// r.Header.Set("Content-Length", strconv.Itoa(len(newBytes)))
 
-		r.ContentLength = int64(len(newBytes))
-
-		r.Header.Set("Content-Length", strconv.Itoa(len(newBytes)))
-
-		// serve
 		next.ServeHTTP(w, r)
 	})
 }

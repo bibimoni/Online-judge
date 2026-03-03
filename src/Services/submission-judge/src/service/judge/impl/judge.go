@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
+
+	// "fmt"
 	"os"
 	"strconv"
 	"time"
@@ -24,12 +27,13 @@ import (
 	judgeutils "github.com/bibimoni/Online-judge/submission-judge/src/service/judge/utils"
 	poolservice "github.com/bibimoni/Online-judge/submission-judge/src/service/pool"
 	"github.com/bibimoni/Online-judge/submission-judge/src/service/problem"
-	"github.com/bibimoni/Online-judge/submission-judge/src/service/store"
+
+	// "github.com/bibimoni/Online-judge/submission-judge/src/service/store"
 	isubmission_utils "github.com/bibimoni/Online-judge/submission-judge/src/usecase/submission/utils"
 )
 
 type JudgeServiceImpl struct {
-	pService          *poolservice.PoolService
+	pService          poolservice.PoolService
 	problemService    problem.ProblemService
 	evalRepo          evalrepository.EvaluationRepository
 	checkerService    checker.CheckerService
@@ -37,6 +41,7 @@ type JudgeServiceImpl struct {
 	redisRepo         redisrepository.RedisSubmissionRepository
 	submissionRepo    subrepository.SubmissionRepository
 	sourcecodeRepo    screpository.SourcecodeRepository
+	isolateservice    isolateservice.IsolateService
 }
 
 var CompilationError = errors.New("Compile error!")
@@ -44,7 +49,7 @@ var JudgementFailedMessage = "failed to evaluate submission"
 var AcceptedMessage = "Accepted"
 
 func NewJudgeServiceImpl(
-	pService *poolservice.PoolService,
+	pService poolservice.PoolService,
 	problemService problem.ProblemService,
 	evalRepo evalrepository.EvaluationRepository,
 	checkerS checker.CheckerService,
@@ -52,8 +57,9 @@ func NewJudgeServiceImpl(
 	redis redisrepository.RedisSubmissionRepository,
 	submissionRepo subrepository.SubmissionRepository,
 	sourcecodeRepo screpository.SourcecodeRepository,
+	isolateservice isolateservice.IsolateService,
 ) *JudgeServiceImpl {
-	return &JudgeServiceImpl{
+	js := &JudgeServiceImpl{
 		pService:          pService,
 		problemService:    problemService,
 		evalRepo:          evalRepo,
@@ -62,11 +68,14 @@ func NewJudgeServiceImpl(
 		redisRepo:         redis,
 		submissionRepo:    submissionRepo,
 		sourcecodeRepo:    sourcecodeRepo,
+		isolateservice:    isolateservice,
 	}
+
+	return js
 }
 
 func NewJudgeService(
-	pService *poolservice.PoolService,
+	pService poolservice.PoolService,
 	problemService problem.ProblemService,
 	evalRepo evalrepository.EvaluationRepository,
 	checkerS checker.CheckerService,
@@ -74,60 +83,56 @@ func NewJudgeService(
 	redis redisrepository.RedisSubmissionRepository,
 	submissionRepo subrepository.SubmissionRepository,
 	sourcecodeRepo screpository.SourcecodeRepository,
+	isoisolateservice isolateservice.IsolateService,
 ) judge.JudgeService {
-	return NewJudgeServiceImpl(pService, problemService, evalRepo, checkerS, interactorS, redis, submissionRepo, sourcecodeRepo)
+	return NewJudgeServiceImpl(pService, problemService, evalRepo, checkerS, interactorS, redis, submissionRepo, sourcecodeRepo, isoisolateservice)
 }
 
-// This will be the final wrapper to double check condition, at the end of the function
-// The real judge function will be called, and it will be asynchonous
+// If this worked, i might have to remove the unnecessary parameter
 func (js *JudgeServiceImpl) Judge(ctx context.Context, req *isolateservice.SubmissionRequest, problemInfo *problem.ProblemServiceGetOutput) error {
-	lang, err := store.DefaultStore.Get((*req).LanguageId)
-	if err != nil {
-		return err
-	}
-	// Create a new context since judging has nothing to do with http request
-	bgCtx := context.Background()
-	go js.JudgeStart(bgCtx, lang, req, problemInfo)
-	return nil
+	return js.redisRepo.PushSubmissionJob(ctx, req)
 }
 
 func (js *JudgeServiceImpl) JudgeStart(ctx context.Context, lang pkg.Language, req *isolateservice.SubmissionRequest, problemInfo *problem.ProblemServiceGetOutput) error {
 	// update PENDING to Websocket
 	err := js.updateWS(ctx, req.EvalId)
 	if err != nil {
-		config.GetLogger().Panic().Msgf("Redis stopped working: %v", err)
+		config.GetLogger().Panic().Msgf("redis stopped working: %v", err)
 		return err
 	}
 
 	// This should be here, inside judgeStart
-	i, err := (*js.pService).Get()
+	i, err := js.pService.Get()
 	if err != nil {
 		// Very unlikely, happen when channel is closed
-		err = js.updateFinal(ctx, req.EvalId, domain.JUDGEMENT_FAILED, 0, 0, 0, 0, JudgementFailedMessage)
-		if err != nil {
-			i.Logger.Panic().Msgf("Database error, can't update verdict: %v", err)
+		updateErr := js.updateFinal(ctx, req.EvalId, domain.JUDGEMENT_FAILED, 0, 0, 0, 0, JudgementFailedMessage)
+		if updateErr != nil {
+			i.Logger.Panic().Err(err).Msgf("Database error")
 		}
 		return err
 	}
 
-	i.Logger.Debug().Msgf("Took out an isolate, number of isolate remains in the pool is: %d", (*js.pService).Len())
+	defer js.pService.Put(i)
+	defer i.Logger.Debug().Msgf("Returning isolate to pool, number in pool will be: %d", js.pService.Len())
+
+	i.Logger.Info().Msgf("Judging submission: %s, isolates remaining: %d",
+		req.SubmissionId, js.pService.Len())
 	// Prepare all the nessessary files
 	err = js.Prep(ctx, i, lang, req, problemInfo)
 	if err != nil {
-		i.Logger.Debug().Msgf("Error: %v", err)
-		i.Logger.Debug().Msgf("Judgement failed or CompilationError, return the isolate, number of isolate in the pool is: %d", (*js.pService).Len())
+		i.Logger.Debug().Msgf("Preparation error: %v", err)
 		return err
 	}
 
-	i.Logger.Debug().Msgf("Preparation success!, keep using the isolate, number of isolate in the pool is: %d", (*js.pService).Len())
+	i.Logger.Debug().Msgf("Preparation successful, starting test case execution")
 
 	switch req.SubmissionType {
 	case domain.SubmissionType(domain.ICPC):
 		err = js.JudgeICPC(ctx, i, lang, req, problemInfo)
 	default:
-		(*js.pService).Put(i)
-		i.Logger.Error().Msgf("Other submission type is not supported")
-		err = judge.UnsupportedSubmissionType
+		// js.pService.Put(i)
+		i.Logger.Error().Msgf("Unsupported submission type: %v", req.SubmissionType)
+
 	}
 
 	return err
@@ -136,81 +141,71 @@ func (js *JudgeServiceImpl) JudgeStart(ctx context.Context, lang pkg.Language, r
 // This function will help copy/create the nessessary files into the isolate working directory
 func (js *JudgeServiceImpl) Prep(ctx context.Context, i *domain.Isolate, lang pkg.Language, req *isolateservice.SubmissionRequest, problemInfo *problem.ProblemServiceGetOutput) error {
 	i.Logger.Info().Msgf("Assigned to submission with id: %s", (*req).SubmissionId)
-
-	var (
-		errBuf bytes.Buffer
-		err    error
-		vert   *judge.RunVerdict
-	)
-
-	// always remember to return the isolate instance
-	defer func() {
-		if err != nil {
-			judgeutils.ReturnIsolateIfFail(js.pService, i, err)
-		}
-	}()
-
-	_, err = utils.CreateSubmissionSourceFile(i, req.Sourcecode, req.SubmissionId, lang.DefaultFileName())
+	_, err := utils.CreateSubmissionSourceFile(i, req.Sourcecode, req.SubmissionId, lang.DefaultFileName())
 	if err != nil {
+		i.Logger.Error().Err(err).Msgf("Error creating source file")
 		return err
 	}
+	i.Logger.Debug().Msgf("Source file created successfully!")
 
-	i.Logger.Info().Msgf("Created source file inside the isolate working directory")
+	var compileOutput bytes.Buffer
+	lang.Compile(i, req, &compileOutput)
 
-	lang.Compile(i, req, &errBuf)
-	vert, err = judgeutils.CheckRunStatus(i, req.SubmissionId)
-	msg := judgeutils.GetCompileMessage(vert, errBuf.String())
-
-	i.Logger.Info().Msgf("Compile message: %s", errBuf.String())
+	compileVerdict, err := judgeutils.CheckRunStatus(i, req.SubmissionId)
+	i.Logger.Info().Msgf("Compile message: %s", compileOutput.String())
 	if err != nil {
-		err = js.updateFinal(ctx, req.EvalId, domain.JUDGEMENT_FAILED, vert.Time, vert.MaxRss, 0, 0, vert.Message)
-		if err != nil {
-			i.Logger.Panic().Msgf("Database error, can't update verdict: %v", err)
+		i.Logger.Error().Err(err).Msgf("Failed to read compile meta file")
+		updateErr := js.updateFinal(ctx, req.EvalId, domain.JUDGEMENT_FAILED, 0, 0, 0, 0, JudgementFailedMessage)
+		if updateErr != nil {
+			i.Logger.Panic().Err(updateErr).Msgf("Database error")
 		}
 		return err
 	}
 
-	switch vert.Status {
-	case "RE", "SG", "TO", "XX":
-		err = js.updateFinal(ctx, req.EvalId, domain.COMPILATION_ERROR, vert.Time, vert.MaxRss, 0, 0, msg)
-		if err != nil {
-			i.Logger.Error().Msgf("Database error, can't update verdict: %v", err)
-		}
-		err = judge.CompilationError
-		i.Logger.Debug().Msgf("Compile error: %v", err)
-	default:
-		// This is just to detect if the program failed to compile via the information given by the meta file,
-		// this is basically hardcoding and i might have to find a way to make this cleaner
-		if vert.Status != "" || vert.ExitCode != 0 {
-			err = js.updateFinal(ctx, req.EvalId, domain.JUDGEMENT_FAILED, vert.Time, vert.MaxRss, 0, 0, vert.Message)
-			if err != nil {
-				i.Logger.Error().Msgf("Database error, can't update verdict: %v", err)
-			}
-			err = judge.JugdgementFailed
-		}
+	compileMsg := judgeutils.GetCompileMessage(compileVerdict, compileOutput.String())
+	i.Logger.Debug().Msgf("Compile output: %s", compileOutput.String())
 
+	if !js.isCompilationSuccessful(compileVerdict) {
+		i.Logger.Info().Msgf("Compilation failed: status=%s, exitcode=%d", compileVerdict.Status, compileVerdict.ExitCode)
+		updateErr := js.updateFinal(ctx, req.EvalId, domain.COMPILATION_ERROR, compileVerdict.Time, compileVerdict.MaxRss, 0, 0, compileMsg)
+		if updateErr != nil {
+			i.Logger.Panic().Err(updateErr).Msgf("Database error")
+		}
+		return judge.CompilationError
 	}
-	i.Logger.Debug().Msgf("Compile error: %v", err)
+
+	err = js.prepChecker(ctx, i, req, compileVerdict)
 	if err != nil {
+		i.Logger.Error().Err(err).Msgf("Error preparing checker")
 		return err
 	}
-
-	err = js.prepChecker(ctx, i, req, vert)
 
 	// Prepare the interactor file
 	if problemInfo.IsInteractive {
-		err = js.prepInteractor(ctx, i, req, vert)
+		err = js.prepInteractor(ctx, i, req, compileVerdict)
+		if err != nil {
+			i.Logger.Error().Err(err).Msgf("Error preparing interactor")
+			return err
+		}
 	}
 
+	i.Logger.Info().Msgf("Preparation completed successfully!")
 	return nil
+}
+
+func (js *JudgeServiceImpl) isCompilationSuccessful(vert *judge.RunVerdict) bool {
+	if vert.ExitCode == 0 && (vert.Status == "OK" || vert.Status == "") {
+		return true
+	}
+	return false
 }
 
 func (js *JudgeServiceImpl) prepChecker(ctx context.Context, i *domain.Isolate, req *isolateservice.SubmissionRequest, vert *judge.RunVerdict) error {
 	checkerLocation, err := js.problemService.GetCheckerAddr(req.ProblemId)
 	if err != nil {
-		err = js.updateFinal(ctx, req.EvalId, domain.JUDGEMENT_FAILED, vert.Time, vert.MaxRss, 0, 0, vert.Message)
-		if err != nil {
-			i.Logger.Error().Msgf("Database error, can't update verdict: %v", err)
+		updateErr := js.updateFinal(ctx, req.EvalId, domain.JUDGEMENT_FAILED, vert.Time, vert.MaxRss, 0, 0, vert.Message)
+		if updateErr != nil {
+			i.Logger.Error().Err(updateErr).Msg("Database error")
 		}
 		return err
 	}
@@ -225,17 +220,17 @@ func (js *JudgeServiceImpl) prepChecker(ctx context.Context, i *domain.Isolate, 
 func (js *JudgeServiceImpl) prepInteractor(ctx context.Context, i *domain.Isolate, req *isolateservice.SubmissionRequest, vert *judge.RunVerdict) error {
 	interactorLocation, err := js.problemService.GetInteractorAddr(req.ProblemId)
 	if err != nil {
-		err := js.updateFinal(ctx, req.EvalId, domain.JUDGEMENT_FAILED, vert.Time, vert.MaxRss, 0, 0, vert.Message)
-		if err != nil {
-			i.Logger.Error().Msgf("Database error, can't update verdict: %v", err)
+		updateErr := js.updateFinal(ctx, req.EvalId, domain.JUDGEMENT_FAILED, vert.Time, vert.MaxRss, 0, 0, vert.Message)
+		if updateErr != nil {
+			i.Logger.Error().Err(updateErr).Msg("Database error")
 		}
 		return err
 	}
 	crossrunLocation, err := js.problemService.GetCrossRunAddr(req.ProblemId)
 	if err != nil {
-		err := js.updateFinal(ctx, req.EvalId, domain.JUDGEMENT_FAILED, vert.Time, vert.MaxRss, 0, 0, vert.Message)
-		if err != nil {
-			i.Logger.Error().Msgf("Database error, can't update verdict: %v", err)
+		updateErr := js.updateFinal(ctx, req.EvalId, domain.JUDGEMENT_FAILED, vert.Time, vert.MaxRss, 0, 0, vert.Message)
+		if updateErr != nil {
+			i.Logger.Error().Err(updateErr).Msg("Database error")
 		}
 		return err
 	}
@@ -275,18 +270,36 @@ func (js *JudgeServiceImpl) RunCase(
 	tc int,
 	curCpu *float64,
 	curMem *memory.Memory,
-) (done bool, err error) {
-	var ivert domain.Verdict
-	tcInputAddr, err := js.problemService.GetTestCaseAddr(req.ProblemId, problem.TestCaseType(problem.INPUT), tc)
+) (*judge.TestCaseResult, error) {
+	vert, outputAddr, ivert, err := js.executeTest(i, lang, req, problemInfo, tc)
 	if err != nil {
 		js.OnFail(ctx, i, req.EvalId, *curCpu, *curMem, tc-1, JudgementFailedMessage)
-		return true, err
+		return nil, err
+	}
+
+	*curCpu = max(*curCpu, vert.Time)
+	*curMem = max(*curMem, vert.MaxRss)
+	i.Logger.Debug().Msgf("Test %d executed: time=%.2fms, memory=%d, status=%s", tc, vert.Time, vert.MaxRss, vert.Status)
+
+	result := js.evaluateTest(i, req, problemInfo, tc, vert, outputAddr, ivert)
+	return result, nil
+}
+
+func (js *JudgeServiceImpl) executeTest(
+	i *domain.Isolate,
+	lang pkg.Language,
+	req *isolateservice.SubmissionRequest,
+	problemInfo *problem.ProblemServiceGetOutput,
+	tc int,
+) (*judge.RunVerdict, string, domain.Verdict, error) {
+	tcInputAddr, err := js.problemService.GetTestCaseAddr(req.ProblemId, problem.TestCaseType(problem.INPUT), tc)
+	if err != nil {
+		return nil, "", "", err
 	}
 
 	tcAnsAddtr, err := js.problemService.GetTestCaseAddr(req.ProblemId, problem.TestCaseType(problem.OUTPUT), tc)
 	if err != nil {
-		js.OnFail(ctx, i, req.EvalId, *curCpu, *curMem, tc-1, JudgementFailedMessage)
-		return true, err
+		return nil, "", "", err
 	}
 
 	outaddr := utils.GetSubmissionDir(i, req.SubmissionId) + "/output_" + strconv.Itoa(tc)
@@ -294,14 +307,14 @@ func (js *JudgeServiceImpl) RunCase(
 	fout, err := os.Create(outaddr)
 	if err != nil {
 		i.Logger.Panic().Msgf("Error occured when trying to create new output file: %v", err)
-		return true, err
+		return nil, "", "", err
 	}
 	defer fout.Close()
 
 	fin, err := os.Open(tcInputAddr)
 	if err != nil {
 		i.Logger.Panic().Msgf("Error occured when trying to read input file: %v", err)
-		return true, err
+		return nil, "", "", err
 	}
 	defer fin.Close()
 
@@ -314,87 +327,96 @@ func (js *JudgeServiceImpl) RunCase(
 		MaxProcesses: 1,
 	}
 
-	i.Logger.Debug().Msgf("Start to run the code, config is: %v", rc)
+	var interactorVerdict domain.Verdict
 	if problemInfo.IsInteractive {
-		runCmd, err := lang.RunCmdStrNoStream(i, &rc, req)
+		interactorVerdict, err = js.runInteractive(i, lang, req, &rc, tcInputAddr, outaddr, tcAnsAddtr)
 		if err != nil {
-			return true, nil
+			return nil, "", "", err
 		}
-
-		interactorAddr := judgeutils.GetSubmissionInteractorAddr(i, req)
-		crossrunAddr := judgeutils.GetSubmissionCrossRunJarAddr(i, req)
-		reportAddr := judgeutils.GetSubmissionReportFileAddr(i, req)
-		iivert, _, msg, err := js.interactorService.RunInteractor(crossrunAddr, interactorAddr, tcInputAddr, outaddr, tcAnsAddtr, reportAddr, runCmd)
-		if err != nil {
-			return true, nil
-		}
-		ivert = iivert
-		i.Logger.Debug().Msgf("Interactor response: vert: %v, msg: %s", ivert, msg)
 	} else {
-		err = lang.Run(i, &rc, req)
-		if err != nil {
-			return true, err
-		}
+		lang.Run(i, &rc, req)
 	}
 
 	vert, err := judgeutils.CheckRunStatus(i, req.SubmissionId)
-	i.Logger.Debug().Msgf("Run Status from MetaFile: %v", vert)
 	if err != nil {
-		js.OnFail(ctx, i, req.EvalId, *curCpu, *curMem, tc-1, JudgementFailedMessage)
-		return true, err
+		return nil, "", "", err
 	}
-
-	*curCpu = max(*curCpu, vert.Time)
-	*curMem = max(*curMem, vert.MaxRss)
-
-	// checkerLocation, e := js.problemService.GetCheckerAddr(req.ProblemId)
-	// err = e
-	// if err != nil {
-	// 	js.OnFail(ctx, i, req.EvalId, *curCpu, *curMem, tc-1, JudgementFailedMessage)
-	// 	return true, err
-	// }
-
-	// If this is an interactive problem, the verdict must be determine here first
-	if problemInfo.IsInteractive && ivert != domain.ACCEPTED {
-		msg, err := judgeutils.ReadInteractiveReportFile(i, req)
-		err = js.updateCase(ctx, req.EvalId, ivert, vert.Time, vert.MaxRss, msg, 1, *curCpu, *curMem, tc-1)
-		err = js.updateFinal(ctx, req.EvalId, ivert, *curCpu, *curMem, tc-1, 0, msg)
-		if err != nil {
-			i.Logger.Panic().Msgf("Database error, can't update verdict: %v", err)
-		}
-		(*js.pService).Put(i)
-		return true, nil
-	}
-
-	checkerLocation := judgeutils.GetSubmissionCheckerAddr(i, req)
-	cvert, msg, e := js.checkVerdict(vert, checkerLocation, tcInputAddr, outaddr, tcAnsAddtr)
-	err = e
-	if err != nil {
-		js.OnFail(ctx, i, req.EvalId, *curCpu, *curMem, tc-1, JudgementFailedMessage)
-		return true, err
-	}
-
-	curSuccess := tc
-	if cvert != domain.ACCEPTED {
-		curSuccess -= 1
-	}
-	err = js.updateCase(ctx, req.EvalId, cvert, vert.Time, vert.MaxRss, msg, 1, *curCpu, *curMem, curSuccess)
-
-	if err != nil {
-		i.Logger.Panic().Msgf("Database error, can't update verdict: %v", err)
-		return true, err
-	}
-
-	if cvert != domain.ACCEPTED {
-		err = js.updateFinal(ctx, req.EvalId, cvert, *curCpu, *curMem, tc-1, 0, msg)
-		if err != nil {
-			i.Logger.Panic().Msgf("Database error, can't update verdict: %v", err)
-		}
-		(*js.pService).Put(i)
-		return true, nil
-	}
-	return false, nil
+	return vert, outaddr, interactorVerdict, nil
 }
+
+func (js *JudgeServiceImpl) runInteractive(
+	i *domain.Isolate,
+	lang pkg.Language,
+	req *isolateservice.SubmissionRequest,
+	rc *domain.RunConfig,
+	tcInputAddr, outaddr, tcAnsAddtr string,
+) (domain.Verdict, error) {
+	runCmd, err := lang.RunCmdStrNoStream(i, rc, req)
+	if err != nil {
+		return "", err
+	}
+	interactorAddr := judgeutils.GetSubmissionInteractorAddr(i, req)
+	crossrunAddr := judgeutils.GetSubmissionCrossRunJarAddr(i, req)
+	reportAddr := judgeutils.GetSubmissionReportFileAddr(i, req)
+
+	verdict, _, msg, err := js.interactorService.RunInteractor(crossrunAddr, interactorAddr, tcInputAddr, outaddr, tcAnsAddtr, reportAddr, runCmd)
+	if err != nil {
+		return "", err
+	}
+	i.Logger.Debug().Msgf("Interactor response: vert: %v, msg: %s", verdict, msg)
+	return verdict, nil
+}
+
+func (js *JudgeServiceImpl) evaluateTest(
+	i *domain.Isolate,
+	req *isolateservice.SubmissionRequest,
+	problemInfo *problem.ProblemServiceGetOutput,
+	tc int,
+	vert *judge.RunVerdict,
+	outaddr string,
+	interactorVert domain.Verdict,
+) *judge.TestCaseResult {
+	result := &judge.TestCaseResult{
+		Time:   vert.Time,
+		Memory: vert.MaxRss,
+		Score:  0.0,
+	}
+
+	if errVerdict := js.checkRuntimeErrors(vert); errVerdict != "" {
+		result.Verdict = errVerdict
+		result.Message = vert.Message
+		result.ShouldStop = true
+		return result
+	}
+
+	if problemInfo.IsInteractive && interactorVert != "" && interactorVert != domain.ACCEPTED {
+		result.Verdict = interactorVert
+		result.Message, _ = judgeutils.ReadInteractiveReportFile(i, req)
+		result.ShouldStop = true
+		return result
+	}
+
+	// error is skipped because it already checked in executeTest
+	tcInputAddr, _ := js.problemService.GetTestCaseAddr(req.ProblemId, problem.TestCaseType(problem.INPUT), tc)
+	tcAnsAddtr, _ := js.problemService.GetTestCaseAddr(req.ProblemId, problem.TestCaseType(problem.OUTPUT), tc)
+	checkerLocation := judgeutils.GetSubmissionCheckerAddr(i, req)
+
+	verdict, msg, score, err := js.checkVerdict(vert, checkerLocation, tcInputAddr, outaddr, tcAnsAddtr)
+	if err != nil {
+		result.Verdict = domain.JUDGEMENT_FAILED
+		result.Message = JudgementFailedMessage
+		result.ShouldStop = true
+		return result
+	}
+
+	result.Verdict = verdict
+	result.Message = msg
+	result.Score = score
+
+	result.ShouldStop = (verdict != domain.ACCEPTED && verdict != domain.PARTIAL_RESULT && verdict != domain.POINTS)
+	return result
+}
+
 func (js *JudgeServiceImpl) JudgeICPC(
 	ctx context.Context,
 	i *domain.Isolate,
@@ -403,54 +425,165 @@ func (js *JudgeServiceImpl) JudgeICPC(
 	problemInfo *problem.ProblemServiceGetOutput,
 ) error {
 	var (
-		err error
+		curCpuTime     float64       = 0
+		curMemoryUsage memory.Memory = 0
 	)
-	defer func() {
-		if err != nil {
-			judgeutils.ReturnIsolateIfFail(js.pService, i, err)
-		}
-	}()
 
+	for tc := 1; tc <= problemInfo.TestNum; tc += 1 {
+		result, err := js.RunCase(ctx, i, lang, req, problemInfo, tc, &curCpuTime, &curMemoryUsage)
+		if err != nil {
+			return err
+		}
+
+		curSuccess := tc
+		if result.Verdict != domain.ACCEPTED {
+			curSuccess = tc - 1
+		}
+
+		updateErr := js.updateCase(ctx, req.EvalId, result.Verdict, result.Time, result.Memory, result.Message, 1, curCpuTime, curMemoryUsage, curSuccess)
+		if updateErr != nil {
+			i.Logger.Panic().Err(updateErr).Msgf("Database error")
+			return updateErr
+		}
+
+		if result.ShouldStop {
+			updateErr := js.updateFinal(ctx, req.EvalId, result.Verdict, curCpuTime, curMemoryUsage, curSuccess, 0, result.Message)
+			if updateErr != nil {
+				i.Logger.Panic().Err(updateErr).Msgf("Database error")
+				return updateErr
+			}
+			i.Logger.Debug().Msgf("ICPC Judging stopped at test case %d with verdict %s", tc, result.Verdict)
+			return nil
+		}
+	}
+
+	err := js.updateFinal(ctx, req.EvalId, domain.ACCEPTED, curCpuTime, curMemoryUsage, problemInfo.TestNum, 1, AcceptedMessage)
+	if err != nil {
+		i.Logger.Panic().Err(err).Msgf("Database error")
+		return err
+	}
+	i.Logger.Debug().Msgf("ICPC Judging completed, All %d test cases passed!", problemInfo.TestNum)
+	return nil
+}
+
+func (js *JudgeServiceImpl) JudgeIOI(
+	ctx context.Context,
+	i *domain.Isolate,
+	lang pkg.Language,
+	req *isolateservice.SubmissionRequest,
+	problemInfo *problem.ProblemServiceGetOutput,
+) error {
+	i.Logger.Error().Msgf("IOI mode: Judging %d test cases with scoring", problemInfo.TestNum)
 	var (
 		curCpuTime     float64       = 0
 		curMemoryUsage memory.Memory = 0
 	)
+
+	testScores := make(map[int]float64)
+	testMaxScores := make(map[int]float64)
+	verdicts := make(map[int]domain.Verdict)
+
 	for tc := 1; tc <= problemInfo.TestNum; tc += 1 {
-		done, e := js.RunCase(ctx, i, lang, req, problemInfo, tc, &curCpuTime, &curMemoryUsage)
-		err = e
-		if done {
-			(*js.pService).Put(i)
+		idx := tc - 1
+		result, err := js.RunCase(ctx, i, lang, req, problemInfo, tc, &curCpuTime, &curMemoryUsage)
+		if err != nil {
+			i.Logger.Error().Err(err).Msgf("Error running test case %d", tc)
+			testScores[idx] = 0.0
+			verdicts[idx] = domain.JUDGEMENT_FAILED
+			continue
+		}
+
+		maxScore := 100.0
+		if idx < len(problemInfo.TestMaxScores) {
+			maxScore = problemInfo.TestMaxScores[idx]
+		}
+
+		actualScore := (result.Score / 100.0) * maxScore
+		testScores[idx] = actualScore
+		testMaxScores[idx] = maxScore
+		verdicts[idx] = result.Verdict
+
+		i.Logger.Debug().Msgf("Test case %d: verdict=%s, score=%.2f/%.2f", tc, result.Verdict, actualScore, maxScore)
+		updateErr := js.updateCaseFloat(ctx, req.EvalId, result.Verdict, result.Time, result.Memory, result.Message, actualScore, maxScore, curCpuTime, curMemoryUsage, tc)
+		if updateErr != nil {
+			i.Logger.Panic().Err(updateErr).Msgf("Database error")
+			return updateErr
 		}
 	}
 
-	err = js.updateFinal(ctx, req.EvalId, domain.ACCEPTED, curCpuTime, curMemoryUsage, problemInfo.TestNum, 1, AcceptedMessage)
-	if err != nil {
-		i.Logger.Panic().Msgf("Database error, can't update verdict: %v", err)
+	totalScore, totalMaxScore := CalculateTotalScore(problemInfo, testScores, testMaxScores, verdicts, i)
+	var finalVerdict domain.Verdict
+	if totalScore >= totalMaxScore {
+		finalVerdict = domain.ACCEPTED
+	} else {
+		finalVerdict = domain.PARTIAL_RESULT
 	}
-	(*js.pService).Put(i)
-	i.Logger.Debug().Msgf("Judgement success!, return the isolate, number of isolate in the pool is: %d", (*js.pService).Len())
 
+	nSuccess := 0
+	for tc := 1; tc <= problemInfo.TestNum; tc += 1 {
+		idx := tc - 1
+		if verdicts[idx] == domain.ACCEPTED {
+			nSuccess += 1
+		}
+	}
+
+	message := fmt.Sprintf("Total Score: %.2f/%.2f", min(totalScore, totalMaxScore), totalMaxScore)
+	err := js.updateFinalFloat(ctx, req.EvalId, finalVerdict, curCpuTime, curMemoryUsage, nSuccess, totalScore, totalMaxScore, message)
+	if err != nil {
+		i.Logger.Panic().Err(err).Msgf("Database error")
+		return err
+	}
+
+	i.Logger.Info().Msgf("IOI: %s - %s", finalVerdict, message)
 	return nil
 }
 
-func (js *JudgeServiceImpl) checkVerdict(vert *judge.RunVerdict, checkerAddr, inputAddr, outputAddr, answerAddr string) (domain.Verdict, string, error) {
+func (js *JudgeServiceImpl) checkRuntimeErrors(vert *judge.RunVerdict) domain.Verdict {
+	switch vert.Status {
+	case "TO":
+		return domain.TIME_LIMIT_EXCEEDED
+	case "XX":
+		return domain.JUDGEMENT_FAILED
+	}
+
+	if vert.CgOomKilled == 1 {
+		config.GetLogger().Debug().Msgf("MLE detected via cg-oom-killed")
+		return domain.MEMORY_LIMIT_EXCEEDED
+	}
+
+	switch vert.Status {
+	case "RE", "SG":
+		return domain.RUNTIME_ERROR
+	}
+	return ""
+}
+
+func (js *JudgeServiceImpl) checkVerdict(vert *judge.RunVerdict, checkerAddr, inputAddr, outputAddr, answerAddr string) (domain.Verdict, string, float64, error) {
 	config.GetLogger().Debug().Msgf("Status is: %s", vert.Status)
 	switch vert.Status {
 	case "TO":
-		return domain.TIME_LIMIT_EXCEEDED, vert.Message, nil
-	case "RE", "SG":
-		return domain.RUNTIME_ERROR, vert.Message, nil
+		return domain.TIME_LIMIT_EXCEEDED, vert.Message, 0.0, nil
 	case "XX":
-		return domain.JUDGEMENT_FAILED, vert.Message, nil
+		return domain.JUDGEMENT_FAILED, vert.Message, 0.0, nil
+	}
+
+	if vert.CgOomKilled == 1 {
+		config.GetLogger().Debug().Msgf("MLE detected via cg-oom-killed")
+		return domain.MEMORY_LIMIT_EXCEEDED, vert.Message, 0.0, nil
+	}
+
+	switch vert.Status {
+	case "RE", "SG":
+		return domain.RUNTIME_ERROR, vert.Message, 0.0, nil
 	}
 
 	// this return the message and the exit code, which must be use later
 	// TODO: Do something with exit code and checker message
-	cvert, _, msg, err := js.checkerService.RunChecker(checkerAddr, inputAddr, outputAddr, answerAddr)
+	cvert, _, msg, score, err := js.checkerService.RunChecker(checkerAddr, inputAddr, outputAddr, answerAddr)
 	if err != nil {
-		return "", "", err
+		return "", vert.Message, 0.0, err
 	}
-	return cvert, msg, nil
+	return cvert, msg, score, nil
 }
 
 func (js *JudgeServiceImpl) updateFinal(
@@ -529,4 +662,65 @@ func (js *JudgeServiceImpl) updateWS(ctx context.Context, evalId string) error {
 	}
 
 	return js.redisRepo.PulishSubmission(ctx, *wsUpdate)
+}
+
+func (js *JudgeServiceImpl) updateFinalFloat(
+	ctx context.Context,
+	evalId string,
+	verdict domain.Verdict,
+	cpuTime float64,
+	memoryUsage memory.Memory,
+	nsucess int,
+	score float64,
+	maxScore float64,
+	message string,
+) error {
+	err := js.evalRepo.UpdateFinalFloat(
+		ctx,
+		evalId,
+		verdict,
+		cpuTime,
+		memoryUsage,
+		nsucess,
+		score,
+		maxScore,
+		message,
+	)
+	if err != nil {
+		return err
+	}
+	return js.updateWS(ctx, evalId)
+}
+
+func (js *JudgeServiceImpl) updateCaseFloat(
+	ctx context.Context,
+	evalId string,
+	verdictCase domain.Verdict,
+	cpuTimeCase float64,
+	memoryUsageCase memory.Memory,
+	outputCase string,
+	scoreCase float64,
+	maxScoreCase float64,
+	cpuTime float64,
+	memoryUsage memory.Memory,
+	nsucess int,
+) error {
+	err := js.evalRepo.UpdateCaseFloat(
+		ctx,
+		evalId,
+		verdictCase,
+		cpuTimeCase,
+		memoryUsageCase,
+		outputCase,
+		scoreCase,
+		maxScoreCase,
+		cpuTime,
+		memoryUsage,
+		nsucess,
+	)
+	if err != nil {
+		return err
+	}
+
+	return js.updateWS(ctx, evalId)
 }

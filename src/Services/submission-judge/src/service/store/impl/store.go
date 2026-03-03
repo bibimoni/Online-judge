@@ -5,11 +5,13 @@ import (
 	"github.com/bibimoni/Online-judge/submission-judge/src/pkg/langs/cpp"
 	"github.com/bibimoni/Online-judge/submission-judge/src/pkg/langs/pypy3"
 	"github.com/bibimoni/Online-judge/submission-judge/src/pkg/langs/python3"
+	isolateservice "github.com/bibimoni/Online-judge/submission-judge/src/service/isolate"
 	"github.com/bibimoni/Online-judge/submission-judge/src/service/store"
 )
 
 type StoreServiceImpl struct {
 	languageList []pkg.Language
+	iService     isolateservice.IsolateService
 }
 
 type NotFoundError struct {
@@ -20,18 +22,19 @@ func (n NotFoundError) Error() string {
 	return "Language not found: " + n.ID
 }
 
-func NewStoreServiceImpl() *StoreServiceImpl {
+func NewStoreServiceImpl(iService isolateservice.IsolateService) *StoreServiceImpl {
 	return &StoreServiceImpl{
 		languageList: make([]pkg.Language, 0),
+		iService:     iService,
 	}
 }
 
-func NewStoreService() store.StoreService {
-	return NewStoreServiceImpl()
+func NewStoreService(iService isolateservice.IsolateService) store.StoreService {
+	return NewStoreServiceImpl(iService)
 }
 
-func NewStoreWithDefaultLangs() store.StoreService {
-	storeService := NewStoreService()
+func NewStoreWithDefaultLangs(iService isolateservice.IsolateService) store.StoreService {
+	storeService := NewStoreService(iService)
 	for _, option := range cpp.GetAllOptions() {
 		storeService.Register(option)
 	}
@@ -54,6 +57,8 @@ func (ss *StoreServiceImpl) Get(id string) (pkg.Language, error) {
 }
 
 func (ss *StoreServiceImpl) Register(l pkg.Language) {
+	// include isolate service in the language directly
+	l.InitLanguageService(ss.iService, l)
 	ss.languageList = append(ss.languageList, l)
 }
 

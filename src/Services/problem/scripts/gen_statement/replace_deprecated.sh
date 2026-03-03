@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Process all .tex files in the current directory (recursively)
 find . -type f -name "*.tex" | while read -r file; do

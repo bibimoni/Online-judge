@@ -14,13 +14,7 @@ import (
 	isolateservice "github.com/bibimoni/Online-judge/submission-judge/src/service/isolate"
 	"github.com/bibimoni/Online-judge/submission-judge/src/service/isolate/utils"
 	"github.com/bibimoni/Online-judge/submission-judge/src/service/judge"
-	poolservice "github.com/bibimoni/Online-judge/submission-judge/src/service/pool"
 )
-
-func ReturnIsolateIfFail(pService *poolservice.PoolService, i *domain.Isolate, err error) {
-	i.Logger.Warn().Msgf("Return the isolate because something went wrong: %v", err)
-	(*pService).Put(i)
-}
 
 func ReadInteractiveReportFile(i *domain.Isolate, req *isolateservice.SubmissionRequest) (string, error) {
 	reportFileAddr := GetSubmissionReportFileAddr(i, req)

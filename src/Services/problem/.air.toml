@@ -1,7 +1,7 @@
 [build]
 cmd = "go build -o main ./cmd/main.go"
-bin = "./main"
-delay = 1000
+entrypoint = "./main"
+delay = 2000
 
 [log]
 time = true

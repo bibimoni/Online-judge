@@ -32,4 +32,16 @@ type ProblemServiceGetOutput struct {
 	TimeLimit     int      `json:"time-limit,omitempty"`
 	MemoryLimit   int64    `json:"memory-limit,omitempty"`
 	IsInteractive bool     `json:"is-interactive,omitempty"`
+
+	ScoringMode   string         `json:"scoring-mode,omitempty"`
+	TestGroups    []ProblemGroup `json:"test-groups,omitempty"`
+	TestMaxScores []float64      `json:"test-max-scores,omitempty"`
+}
+
+type ProblemGroup struct {
+	Name         string   `json:"name,omitempty"`
+	Scoring      string   `json:"scoring,omitempty"`
+	MaxScore     float64  `json:"max-score,omitempty"`
+	TestIndices  []int    `json:"test-indices,omitempty"`
+	Dependencies []string `json:"dependencies,omitempty"`
 }

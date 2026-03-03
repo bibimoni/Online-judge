@@ -4,6 +4,7 @@ services:
     build: 
       context: ./src/Services/submission-judge/ 
       target: dev #prod 
+    platform: linux/amd64
     env_file:
       # - src/Services/submission-judge/.env
       - ./.env
@@ -14,9 +15,12 @@ services:
     volumes:
       - ./src/Services/submission-judge:/app
       - ./storage:/problems_dir:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
     networks:
       - online-judge-network
     privileged: true
+    security_opt:
+      - apparmor=unconfined
   mongosubmissionjudgedb: 
     container_name: submission-judge-db
     image: mongo
@@ -51,13 +55,16 @@ services:
       # - src/Services/gateway/.env
       - ./.env
     ports:
-      - "80:80"
+      - "81:81"
     volumes:
       - ./src/Services/gateway:/app
     networks:
       - online-judge-network
   problem:
-    build: ./src/Services/problem/
+    build:
+      context: ./src/Services/problem/
+      # target: dev
+    platform: linux/amd64
     container_name: problem
     ports:
       - '3000:3000'
@@ -88,7 +95,7 @@ services:
     build: ./src/Services/contest/
     container_name: contest
     ports:
-      - '2000:2000'
+      - '8001:8001'
     depends_on:
       - contestmongodb
       - scoreboard_redis
@@ -120,6 +127,38 @@ services:
     restart: always
     volumes:
       - ./scoreboard_redis:/data
+    networks:
+      - online-judge-network
+  auth:
+    build:
+      context: ./src/Services/auth-v2/
+      dockerfile: Dockerfile
+    ports:
+      - "50051:50051"
+    depends_on:
+      - mypostgres
+    env_file:
+      - ./.env
+    environment:
+      - NODE_ENV=development
+      - AUTH_DATABASE_URL=postgresql://postgres:postgres@mypostgres:5432/auth_db?schema=public
+      - AUTH_JWT_SECRET=your_jwt_secret
+    volumes:
+      - ./src/Services/auth-v2:/app
+      - /app/node_modules
+    restart: unless-stopped
+    networks:
+      - online-judge-network
+  mypostgres:
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=auth_db
+    volumes:
+      - ./postgres-data:/var/lib/postgresql
     networks:
       - online-judge-network
 networks:

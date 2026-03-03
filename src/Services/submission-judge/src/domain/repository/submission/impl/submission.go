@@ -5,6 +5,8 @@ import (
 	"time"
 
 	domain "github.com/bibimoni/Online-judge/submission-judge/src/domain/entitiy"
+	evalRepo "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/evaluation"
+	sourcecodeRepo "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/sourcecode"
 	repository "github.com/bibimoni/Online-judge/submission-judge/src/domain/repository/submission"
 	"github.com/bibimoni/Online-judge/submission-judge/src/infrastructure/config"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -13,22 +15,40 @@ import (
 )
 
 type SubmissionRepositoryImpl struct {
-	collection *mongo.Collection
+	collectionName string
+	collection     *mongo.Collection
 }
 
-func NewSubmissionRepositoryImpl(db *mongo.Database) *SubmissionRepositoryImpl {
+func NewSubmissionRepositoryImpl(
+	db *mongo.Database,
+) *SubmissionRepositoryImpl {
+	collectionName := "Submission"
 	return &SubmissionRepositoryImpl{
-		collection: db.Collection("Submission"),
+		collectionName: collectionName,
+		collection:     db.Collection(collectionName),
 	}
 }
 
-func NewSubmissionRepository(db *mongo.Database) repository.SubmissionRepository {
+func NewSubmissionRepository(
+	db *mongo.Database,
+	evalRepo *evalRepo.EvaluationRepository,
+	sourcecodeRepo *sourcecodeRepo.SourcecodeRepository,
+) repository.SubmissionRepository {
 	return NewSubmissionRepositoryImpl(db)
+}
+
+func (sr *SubmissionRepositoryImpl) GetCollectionName() string {
+	return sr.collectionName
+}
+
+func (sr *SubmissionRepositoryImpl) GetCollection() *mongo.Collection {
+	return sr.collection
 }
 
 func (sr *SubmissionRepositoryImpl) FindAllProblemSubmissionIds(ctx context.Context, problemId string) ([]string, error) {
 	filter := bson.M{"problem_id": problemId}
 	opts := options.Find().SetProjection(bson.M{"_id": 1})
+	config.GetLogger().Debug().Msgf("%v %v", filter, opts)
 
 	cursor, err := sr.collection.Find(ctx, filter, opts)
 	if err != nil {
@@ -63,7 +83,24 @@ func (sr *SubmissionRepositoryImpl) CreateSubmission(ctx context.Context, params
 	}
 	got, err := sr.collection.InsertOne(ctx, newSubmission)
 	if err != nil {
-		return "", nil
+		return "", err
+	}
+
+	log := config.GetLogger()
+	log.Info().Msgf("Saved submission with id: [%s] to the database", got.InsertedID.(bson.ObjectID).Hex())
+	return got.InsertedID.(bson.ObjectID).Hex(), nil
+}
+
+func (sr *SubmissionRepositoryImpl) CreateSubmissionWithTimestamp(ctx context.Context, params repository.CreateSubmissionInput, submitAt time.Time) (string, error) {
+	newSubmission := domain.Submission{
+		Username:  params.Username,
+		ProblemId: params.ProblemId,
+		Timestamp: submitAt,
+		Type:      params.Type,
+	}
+	got, err := sr.collection.InsertOne(ctx, newSubmission)
+	if err != nil {
+		return "", err
 	}
 
 	log := config.GetLogger()

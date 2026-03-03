@@ -271,3 +271,41 @@ GET /api/v1/submission/problem/view/:problem_id
 	],
 	"eval_status": "JUDGING"
 }```
+
+# Adding a Horizontal Judge Node
+
+This workflow describes how to scale your judging capacity by adding a new `submission-judge` instance on a **different computer**.
+
+## Prerequisites
+
+1.  **Docker & Docker Compose** installed on the new machine.
+2.  **Network Access**: The new machine must be able to reach:
+    *   **Redis**: The main Redis instance (e.g., `redis-submission-judge` on the main server).
+    *   **Problem Service**: The Problem Service API (e.g., `problem` on the main server).
+    *   **MongoDB**: (Optional, if the judge writes directly to DB, otherwise it just needs Redis). *Note: Current implementation writes to DB.*
+    *   **openssh**: use `brew install autossh` (Macos)...
+
+## Open ssh tunnel
+
+```bash
+autossh -M 0 -f -N -L 9998:localhost:37017 -L 9999:localhost:6381 root@<your_ssh_ip>
+```
+
+## Run distributed judge
+
+Replace `redissubmissionjudge`, `mongosubmissionjudgedb`, `problem` to the docker internal port. Which later will connect to the ssh server via ssh tunnel
+Please note that the all the ports of each service must be mapped correctly (e.g. redis is 6381, mongo is 37017, ...). Your can either change the env here (like the example below using `-e` option or change directly in the `.env` file)
+```bash
+docker-compose run --rm -d \
+  -p 8001:8001 \
+  -e SUBMISSION_IS_MAIN_JUDGE=false \
+  -e SUBMISSION_JUDGE_PROBLEM_DIR=/tmp/cache \
+  -e SUBMISSION_PORT=8001 \
+  -e SUBMISSION_REDIS_URI=host.docker.internal:9999 \
+  -e SUBMISSION_MONGODB_URI=mongodb://host.docker.internal:9998/submissionjudgedb \
+  -e PROBLEM_ENDPOINT=http://<your_ssh_ip>:3000 \
+  -e SUBMISSION_REDIS_PASSWORD=root \
+  -v /tmp/judge_cache:/tmp/cache \
+  submission-judge
+```
+
