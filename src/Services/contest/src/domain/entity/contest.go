@@ -200,6 +200,6 @@ func (contest *Contest) CanViewScoreboard(username, role string) bool {
 		return true
 	} else if contest.ScoreboardVisibility == ScoreboardHidden {
 		return false
-	} 
+	}
 	return contest.HasStarted()
 }
