@@ -1,9 +1,10 @@
 package impl_test
 
 import (
+	"testing"
+
 	"github.com/bibimoni/Online-judge/submission-judge/src/service/problem"
 	"github.com/bibimoni/Online-judge/submission-judge/src/service/problem/impl"
-	"testing"
 )
 
 func TestProblemServiceImpl_GetTestCaseAddr(t *testing.T) {
@@ -11,6 +12,7 @@ func TestProblemServiceImpl_GetTestCaseAddr(t *testing.T) {
 		name string // description of this test case
 		// Named input parameters for target function.
 		problemId string
+		version   string
 		tcType    problem.TestCaseType
 		testNum   int
 		want      string
@@ -20,6 +22,7 @@ func TestProblemServiceImpl_GetTestCaseAddr(t *testing.T) {
 		{
 			"test problem service",
 			"445985",
+			"v1",
 			"INPUT",
 			1,
 			"_",
@@ -32,7 +35,7 @@ func TestProblemServiceImpl_GetTestCaseAddr(t *testing.T) {
 			if err != nil {
 				t.Fatalf("could not construct receiver type: %v", err)
 			}
-			got, gotErr := ps.GetTestCaseAddr(tt.problemId, tt.tcType, tt.testNum)
+			got, gotErr := ps.GetTestCaseAddr(tt.problemId, tt.version, tt.tcType, tt.testNum)
 			if gotErr != nil {
 				if !tt.wantErr {
 					t.Errorf("GetTestCaseAddr() failed: %v", gotErr)

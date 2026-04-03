@@ -5,7 +5,7 @@
 source="$1" # Polygon package path
 dest="$2" # problem path
 
-mkdir -p "$dest/tests/input" || exit -1
+mkdir -p "$dest/tests/input" "$dest/tests/output" || exit -1
 
 cd "$source/tests" || exit -1
 
@@ -25,8 +25,19 @@ for f in *; do
   # fi
 
   
-  echo "$f does not end with .a"
-  cp -- "$f" "$dest/tests/input/$name" || exit -1
+  # echo "$f does not end with .a"
+  # cp -- "$f" "$dest/tests/input/$name" || exit -1
+
+  case "$f" in
+    *.a)
+      echo "$f ends with .a"
+      cp -- "$f" "$dest/tests/output/$name" || exit -1
+      ;;
+    *)
+      echo "$f does not end with .a"
+      cp -- "$f" "$dest/tests/input/$name" || exit -1
+      ;;
+  esac
 done
 
 exit 0

@@ -201,7 +201,7 @@ func (js *JudgeServiceImpl) isCompilationSuccessful(vert *judge.RunVerdict) bool
 }
 
 func (js *JudgeServiceImpl) prepChecker(ctx context.Context, i *domain.Isolate, req *isolateservice.SubmissionRequest, vert *judge.RunVerdict) error {
-	checkerLocation, err := js.problemService.GetCheckerAddr(req.ProblemId)
+	checkerLocation, err := js.problemService.GetCheckerAddr(req.ProblemId, req.ProblemVersion)
 	if err != nil {
 		updateErr := js.updateFinal(ctx, req.EvalId, domain.JUDGEMENT_FAILED, vert.Time, vert.MaxRss, 0, 0, vert.Message)
 		if updateErr != nil {
@@ -218,7 +218,7 @@ func (js *JudgeServiceImpl) prepChecker(ctx context.Context, i *domain.Isolate, 
 }
 
 func (js *JudgeServiceImpl) prepInteractor(ctx context.Context, i *domain.Isolate, req *isolateservice.SubmissionRequest, vert *judge.RunVerdict) error {
-	interactorLocation, err := js.problemService.GetInteractorAddr(req.ProblemId)
+	interactorLocation, err := js.problemService.GetInteractorAddr(req.ProblemId, req.ProblemVersion)
 	if err != nil {
 		updateErr := js.updateFinal(ctx, req.EvalId, domain.JUDGEMENT_FAILED, vert.Time, vert.MaxRss, 0, 0, vert.Message)
 		if updateErr != nil {
@@ -226,7 +226,7 @@ func (js *JudgeServiceImpl) prepInteractor(ctx context.Context, i *domain.Isolat
 		}
 		return err
 	}
-	crossrunLocation, err := js.problemService.GetCrossRunAddr(req.ProblemId)
+	crossrunLocation, err := js.problemService.GetCrossRunAddr(req.ProblemId, req.ProblemVersion)
 	if err != nil {
 		updateErr := js.updateFinal(ctx, req.EvalId, domain.JUDGEMENT_FAILED, vert.Time, vert.MaxRss, 0, 0, vert.Message)
 		if updateErr != nil {
@@ -270,31 +270,12 @@ func (js *JudgeServiceImpl) RunCase(
 	tc int,
 	curCpu *float64,
 	curMem *memory.Memory,
-) (*judge.TestCaseResult, error) {
-	vert, outputAddr, ivert, err := js.executeTest(i, lang, req, problemInfo, tc)
-	if err != nil {
-		js.OnFail(ctx, i, req.EvalId, *curCpu, *curMem, tc-1, JudgementFailedMessage)
-		return nil, err
-	}
-
-	*curCpu = max(*curCpu, vert.Time)
-	*curMem = max(*curMem, vert.MaxRss)
-	i.Logger.Debug().Msgf("Test %d executed: time=%.2fms, memory=%d, status=%s", tc, vert.Time, vert.MaxRss, vert.Status)
-
-	result := js.evaluateTest(i, req, problemInfo, tc, vert, outputAddr, ivert)
-	return result, nil
-}
-
-func (js *JudgeServiceImpl) executeTest(
-	i *domain.Isolate,
-	lang pkg.Language,
-	req *isolateservice.SubmissionRequest,
-	problemInfo *problem.ProblemServiceGetOutput,
-	tc int,
-) (*judge.RunVerdict, string, domain.Verdict, error) {
+) (done bool, err error) {
+	var ivert domain.Verdict
 	tcInputAddr, err := js.problemService.GetTestCaseAddr(req.ProblemId, problem.TestCaseType(problem.INPUT), tc)
 	if err != nil {
-		return nil, "", "", err
+		js.OnFail(ctx, i, req.EvalId, *curCpu, *curMem, tc-1, JudgementFailedMessage)
+		return true, err
 	}
 
 	tcAnsAddtr, err := js.problemService.GetTestCaseAddr(req.ProblemId, problem.TestCaseType(problem.OUTPUT), tc)
@@ -361,47 +342,16 @@ func (js *JudgeServiceImpl) runInteractive(
 
 	verdict, _, msg, err := js.interactorService.RunInteractor(crossrunAddr, interactorAddr, tcInputAddr, outaddr, tcAnsAddtr, reportAddr, runCmd)
 	if err != nil {
-		return "", err
-	}
-	i.Logger.Debug().Msgf("Interactor response: vert: %v, msg: %s", verdict, msg)
-	return verdict, nil
-}
-
-func (js *JudgeServiceImpl) evaluateTest(
-	i *domain.Isolate,
-	req *isolateservice.SubmissionRequest,
-	problemInfo *problem.ProblemServiceGetOutput,
-	tc int,
-	vert *judge.RunVerdict,
-	outaddr string,
-	interactorVert domain.Verdict,
-) *judge.TestCaseResult {
-	result := &judge.TestCaseResult{
-		Time:   vert.Time,
-		Memory: vert.MaxRss,
-		Score:  0.0,
+		js.OnFail(ctx, i, req.EvalId, *curCpu, *curMem, tc-1, JudgementFailedMessage)
+		return true, err
 	}
 
-	if errVerdict := js.checkRuntimeErrors(vert); errVerdict != "" {
-		result.Verdict = errVerdict
-		result.Message = vert.Message
-		result.ShouldStop = true
-		return result
+	curSuccess := tc
+	if cvert != domain.ACCEPTED {
+		curSuccess -= 1
 	}
+	err = js.updateCase(ctx, req.EvalId, cvert, vert.Time, vert.MaxRss, msg, 1, *curCpu, *curMem, curSuccess)
 
-	if problemInfo.IsInteractive && interactorVert != "" && interactorVert != domain.ACCEPTED {
-		result.Verdict = interactorVert
-		result.Message, _ = judgeutils.ReadInteractiveReportFile(i, req)
-		result.ShouldStop = true
-		return result
-	}
-
-	// error is skipped because it already checked in executeTest
-	tcInputAddr, _ := js.problemService.GetTestCaseAddr(req.ProblemId, problem.TestCaseType(problem.INPUT), tc)
-	tcAnsAddtr, _ := js.problemService.GetTestCaseAddr(req.ProblemId, problem.TestCaseType(problem.OUTPUT), tc)
-	checkerLocation := judgeutils.GetSubmissionCheckerAddr(i, req)
-
-	verdict, msg, score, err := js.checkVerdict(vert, checkerLocation, tcInputAddr, outaddr, tcAnsAddtr)
 	if err != nil {
 		result.Verdict = domain.JUDGEMENT_FAILED
 		result.Message = JudgementFailedMessage

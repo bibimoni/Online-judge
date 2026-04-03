@@ -47,10 +47,8 @@ func RegisterRouter(group *gin.RouterGroup, appContext components.AppContext) {
 	{
 		internal := contest.Group("/internal")
 		internal.Use(middleware.Internal())
-		internal.POST("/ingest-submission", contestsubmissioncontroller.InternalIngestContestSubmission(contestsubmissionInteractor))
 		internal.GET("/problem-lock/:problem_id", contestcontroller.InternalProblemLock(contestInteractor))
 	}
-
 	rating := group.Group("/rating")
 	{
 		rating.GET("/user/:username", ratingcontroller.GetUserRating(ratingInteractor))

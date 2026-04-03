@@ -62,6 +62,11 @@ func (si *SubmissionInteractor) SubmitSubmission(ctx context.Context, input *use
 		return nil, usecase.ErrProblemLocked
 	}
 
+	latestVersion, err := si.problemService.GetLatestVersion(ctx, input.ProblemId)
+	if err != nil {
+		return nil, err
+	}
+
 	problemInfo, err := si.problemService.Get(ctx, input.ProblemId)
 	if err != nil {
 		return nil, err
@@ -96,6 +101,7 @@ func (si *SubmissionInteractor) SubmitSubmission(ctx context.Context, input *use
 		ProblemId:      input.ProblemId,
 		LanguageId:     input.LanguageId,
 		EvalId:         evalId,
+		ProblemVersion: latestVersion,
 	}
 
 	log.Info().Msgf("Enqueue submission, id: %s. With eval id: %s", submissionId, evalId)
@@ -133,7 +139,14 @@ func (si *SubmissionInteractor) RejudgeSubmission(ctx context.Context, input *us
 	distinctProblemIds = slices.Compact(distinctProblemIds)
 
 	var problemInfos = make(map[string]*problem.ProblemServiceGetOutput)
+	var problemVersions = make(map[string]string)
 	for _, pid := range distinctProblemIds {
+		version, err := si.problemService.GetLatestVersion(ctx, pid)
+		if err != nil {
+			return nil, err
+		}
+		problemVersions[pid] = version
+
 		pinfo, err := si.problemService.Get(ctx, pid)
 		if err != nil {
 			return nil, err
@@ -143,6 +156,7 @@ func (si *SubmissionInteractor) RejudgeSubmission(ctx context.Context, input *us
 
 	for _, req := range validSubmissionRequests {
 		resp.RejudgeSuccessSubmissionIds = append(resp.RejudgeSuccessSubmissionIds, req.SubmissionId)
+		req.ProblemVersion = problemVersions[req.ProblemId]
 		si.judgeService.Judge(ctx, &req, problemInfos[req.ProblemId])
 	}
 
@@ -186,6 +200,12 @@ func (si *SubmissionInteractor) InternalContestSubmitSubmission(ctx context.Cont
 	log := config.GetLogger()
 	log.Info().Msgf("User %s submitted a solution in %s, for problem with problem id: %s", input.Username, input.LanguageId, input.ProblemId)
 
+	latestVersion, err := si.problemService.GetLatestVersion(ctx, input.ProblemId)
+	if err != nil {
+		log.Error().Err(err).Msgf("failed to get latest version")
+		return nil, err
+	}
+
 	problemInfo, err := si.problemService.Get(ctx, input.ProblemId)
 	if err != nil {
 		log.Error().Err(err).Msgf("failed to get problem info")
@@ -224,6 +244,7 @@ func (si *SubmissionInteractor) InternalContestSubmitSubmission(ctx context.Cont
 		LanguageId:     input.LanguageId,
 		EvalId:         evalId,
 		ContestId:      input.ContestId,
+		ProblemVersion: latestVersion,
 	}
 
 	log.Info().Msgf("Enqueue submission, id: %s. With eval id: %s", submissionId, evalId)
