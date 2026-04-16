@@ -3,6 +3,7 @@ coverage.out
 .github/workflows/contest-service-ci.yml
 .github/workflows/ci.yml
 .env
+.env.dev
 submission-judge-db-data/
 problem-db-data/
 redis-submission-judge/
@@ -12,7 +13,10 @@ postgres-data/
 scoreboard_redis/
 **/main
 **/tmp/
+**/bin/
 .DS_Store
 AGENTS.md
-.DS_Store
 isolate**/
+/logs/*
+/isolate-*/
+

@@ -36,18 +36,18 @@ jobs:
           go-version: ${{ matrix.go-version }}
       
       - name: Install dependencies
-        working-directory: src/Services/${{ matrix.service }}
+        working-directory: ${{ matrix.service }}
         run: go mod download
       
       - name: Run tests
-        working-directory: src/Services/${{ matrix.service }}
+        working-directory: ${{ matrix.service }}
         run: |
           go test -v -race -coverprofile=coverage.out ./...
       
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:
-          files: ./src/Services/${{ matrix.service }}/coverage.out
+          files: ./${{ matrix.service }}/coverage.out
           flags: ${{ matrix.service }}
 
   # Test Auth service (Node.js)
@@ -78,32 +78,32 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: src/Services/auth-v2/package-lock.json
+          cache-dependency-path: auth-v2/package-lock.json
       
       - name: Install dependencies
-        working-directory: src/Services/auth-v2
+        working-directory: auth-v2
         run: npm ci
       
       - name: Generate Prisma Client
-        working-directory: src/Services/auth-v2
+        working-directory: auth-v2
         run: npx prisma generate
         env:
           AUTH_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auth_test
       
       - name: Run Prisma migrations
-        working-directory: src/Services/auth-v2
+        working-directory: auth-v2
         run: npx prisma migrate deploy
         env:
           AUTH_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auth_test
       
       - name: Run unit tests
-        working-directory: src/Services/auth-v2
+        working-directory: auth-v2
         run: npm run test
         env:
           AUTH_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auth_test
       
       - name: Run E2E tests
-        working-directory: src/Services/auth-v2
+        working-directory: auth-v2
         run: npm run test:e2e
         env:
           AUTH_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auth_test
@@ -111,7 +111,7 @@ jobs:
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:
-          files: ./src/Services/auth-v2/coverage/lcov.info
+          files: ./auth-v2/coverage/lcov.info
           flags: auth-v2
 
   # # Integration test - All services end-to-end
@@ -133,7 +133,7 @@ jobs:
   #       uses: actions/cache@v4
   #       with:
   #         path: /tmp/docker-images
-  #         key: ${{ runner.os }}-docker-${{ hashFiles('src/Services/**/Dockerfile', 'src/Services/**/go.sum', 'src/Services/**/package-lock.json') }}
+  #         key: ${{ runner.os }}-docker-${{ hashFiles('**/Dockerfile', '**/go.sum', '**/package-lock.json') }}
   #         restore-keys: |
   #           ${{ runner.os }}-docker-
   #     
@@ -157,7 +157,7 @@ jobs:
   #           ./contest-db-data
   #           ./redis-submission-judge
   #           ./scoreboard_redis
-  #         key: ${{ runner.os }}-db-volumes-${{ hashFiles('src/Services/auth-v2/prisma/schema.prisma', 'src/Services/auth-v2/prisma/migrations/**') }}
+  #         key: ${{ runner.os }}-db-volumes-${{ hashFiles('auth-v2/prisma/schema.prisma', 'auth-v2/prisma/migrations/**') }}
   #         restore-keys: |
   #           ${{ runner.os }}-db-volumes-
   #     
@@ -362,9 +362,9 @@ jobs:
   #         docker compose exec -T submission-judge isolate --version || echo "Warning: isolate check failed"
   #     
   #     - name: Run integration tests
-  #       working-directory: src/Services/submission-judge
+  #       working-directory: submission-judge
   #       run: |
-  #         go test -v -timeout 10m ./src/tests -run TestEndToEndJudgingFlow
+  #         go test -v -timeout 10m ./src/tests/... -run TestEndToEndJudgingFlow
   #     
   #     - name: Save Docker images to cache
   #       if: always()
@@ -447,7 +447,7 @@ jobs:
   #     - name: Build and push
   #       uses: docker/build-push-action@v5
   #       with:
-  #         context: ./src/Services/${{ matrix.service }}
+  #         context: ./${{ matrix.service }}
   #         push: true
   #         tags: |
   #           ${{ secrets.DOCKER_USERNAME }}/online-judge-${{ matrix.service }}:latest

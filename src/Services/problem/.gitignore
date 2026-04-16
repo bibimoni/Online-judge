@@ -1,6 +1,0 @@
-main
-tmp/
-*.aux
-*.fdb_latexmk
-*.fls
-main.log
