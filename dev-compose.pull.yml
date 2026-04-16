@@ -1,7 +1,7 @@
 services:
   dev:
     container_name: online-judge-dev
-    image: distiled/online-judge
+    image: distiled/online-judge:v0.1.0
     platform: linux/amd64
     env_file:
       - ./.env.dev
