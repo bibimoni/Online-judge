@@ -101,8 +101,8 @@ WORKDIR /code
 COPY scripts/start.sh /usr/local/bin/start.sh
 COPY scripts/install-deps.sh /usr/local/bin/install-deps.sh
 COPY scripts/stop.sh /usr/local/bin/stop.sh
-RUN chmod +x scripts/*
-RUN chmod +x /usr/local/bin/start.sh /usr/local/bin/install-deps.sh /usr/local/bin/stop.sh
+COPY scripts/log.sh /usr/local/bin/log.sh
+RUN chmod +x /usr/local/bin/start.sh /usr/local/bin/install-deps.sh /usr/local/bin/stop.sh /usr/local/bin/log.sh
 
 RUN echo '#!/bin/bash' > /entrypoint.sh && \
     echo 'systemd-tmpfiles --create /usr/lib/tmpfiles.d/isolate.conf 2>/dev/null || true' >> /entrypoint.sh && \

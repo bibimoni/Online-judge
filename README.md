@@ -10,26 +10,28 @@ docker compose up --build
 
 ### Option 2: All services in one dev container (dev-compose.yml)
 
-Build once, then run the script inside:
-
 ```bash
-# Build the dev image (only needed once, or when Dockerfile.dev changes)
-./scripts/build-docker.sh
+# Build and start the dev container + infrastructure
+./dev.sh
 
-# Start infrastructure (databases, redis) + dev container
-./scripts/run-docker.sh
-
-# Attach a shell
+# Enter the container
 docker exec -it online-judge-dev bash
 
-# Start all services
-./scripts/start.sh
+# Install dependencies (first time only)
+install-deps.sh
 
-# Or invidually
-./scripts/start-<service_name>.sh
+# Start all services
+start.sh
+
+# Stop all services
+stop.sh
 
 # View logs
-./scripts/log.sh 
+log.sh <service>
+# e.g. log.sh auth
+
+# Restart a single service
+stop.sh && start.sh
 ```
 
 Stop everything:
@@ -38,12 +40,17 @@ Stop everything:
 docker compose -f dev-compose.yml down
 ```
 
+## Configuration
+
+- `.env` — production endpoints (Docker service names)
+- `.env.dev` — dev endpoints (localhost), used by `dev-compose.yml`
+
 ## Services
 
-| Service | Port | Language |
-|---|---|---|
-| gateway | 81 | Go |
-| submission-judge | 8000 | Go |
-| contest | 8001 | Go |
-| problem | 3000 | Go |
-| auth-v2 | 50051 | Node.js |
+| Service | Port | Language | Log |
+|---|---|---|---|
+| gateway | 81 | Go | `/code/logs/gateway.log` |
+| submission-judge | 8000 | Go | `/code/logs/submission-judge.log` |
+| contest | 8001 | Go | `/code/logs/contest.log` |
+| problem | 3000 | Go | `/code/logs/problem.log` |
+| auth-v2 | 50051 | Node.js | `/code/logs/auth.log` |
