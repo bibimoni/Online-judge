@@ -14,6 +14,9 @@ docker compose up --build
 # Build and start the dev container + infrastructure
 ./dev.sh
 
+# Or use a pre-built image instead of building locally
+docker compose -f dev-compose.pull.yml up -d
+
 # Enter the container
 docker exec -it online-judge-dev bash
 
