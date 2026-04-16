@@ -1,0 +1,113 @@
+services:
+  dev:
+    container_name: online-judge-dev
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    platform: linux/amd64
+    env_file:
+      - ./.env.dev
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+      - "81:81"
+      - "3000:3000"
+      - "50051:50051"
+    depends_on:
+      - mongosubmissionjudgedb
+      - redissubmissionjudge
+      - problemmongodb
+      - contestmongodb
+      - scoreboard_redis
+      - mypostgres
+    volumes:
+      - .:/code
+      - ./storage:/problems_dir:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    networks:
+      - online-judge-network
+    privileged: true
+    security_opt:
+      - apparmor=unconfined
+    stdin_open: true
+    tty: true
+
+  mongosubmissionjudgedb:
+    container_name: submission-judge-db
+    image: mongo
+    restart: always
+    environment:
+      MONGO_INITDB_DATABASE: submissionjudgedb
+    ports:
+      - '37017:27017'
+    volumes:
+      - ./submission-judge-db-data:/data/db
+    networks:
+      - online-judge-network
+
+  redissubmissionjudge:
+    container_name: redis-submission-judge
+    image: redis
+    restart: always
+    ports:
+      - '6379:6379'
+    command: redis-server --save 20 1 --loglevel warning --requirepass root
+    networks:
+      - online-judge-network
+    volumes:
+      - ./redis-submission-judge:/data
+
+  problemmongodb:
+    image: mongo
+    container_name: problem-mongo
+    restart: always
+    environment:
+      MONGO_INITDB_DATABASE: problem-db
+    ports:
+      - '27017:27017'
+    volumes:
+      - ./problem-db-data:/data/db
+    networks:
+      - online-judge-network
+
+  contestmongodb:
+    image: mongo
+    container_name: contest-mongo
+    restart: always
+    environment:
+      MONGO_INITDB_DATABASE: contest-db
+    ports:
+      - '47017:27017'
+    volumes:
+      - ./contest-db-data:/data/db
+    networks:
+      - online-judge-network
+
+  scoreboard_redis:
+    image: redis
+    container_name: scoreboard_redis
+    ports:
+      - "6380:6379"
+    restart: always
+    volumes:
+      - ./scoreboard_redis:/data
+    networks:
+      - online-judge-network
+
+  mypostgres:
+    image: postgres:latest
+    container_name: auth-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=auth_db
+    volumes:
+      - ./postgres-data:/var/lib/postgresql
+    networks:
+      - online-judge-network
+
+networks:
+  online-judge-network:
+    driver: bridge

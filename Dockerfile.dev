@@ -1,0 +1,118 @@
+FROM debian:bookworm
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    ca-certificates \
+    wget \
+    curl \
+    gcc \
+    g++ \
+    make \
+    build-essential \
+    libcap-dev \
+    libcap2 \
+    libcap2-bin \
+    libsystemd-dev \
+    libsystemd0 \
+    pkg-config \
+    python3 \
+    pypy3 \
+    default-jre \
+    git \
+    procps \
+    netcat-openbsd \
+    latexmk \
+    texlive-xetex \
+    texlive-latex-recommended \
+    texlive-latex-extra \
+    texlive-fonts-recommended \
+    texlive-fonts-extra \
+    texlive-lang-all \
+    perl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt update && apt install -y \
+    vim \
+    htop \
+    tmux \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN GO_VERSION=1.25.5 \
+    && arch=$(dpkg --print-architecture) \
+    && wget -q https://go.dev/dl/go${GO_VERSION}.linux-${arch}.tar.gz -O /tmp/go.tar.gz \
+    && tar -C /usr/local -xzf /tmp/go.tar.gz \
+    && rm /tmp/go.tar.gz
+
+ENV PATH="/usr/local/go/bin:/root/go/bin:${PATH}"
+ENV GOPATH="/root/go"
+
+RUN echo 'export PATH="/usr/local/go/bin:/root/go/bin:$PATH"' > /etc/profile.d/dev-path.sh \
+    && echo 'export GOPATH="/root/go"' >> /etc/profile.d/dev-path.sh
+
+RUN go install github.com/air-verse/air@latest
+
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /tmp/isolate-build
+RUN wget https://github.com/ioi/isolate/archive/refs/tags/v2.2.1.tar.gz && \
+    tar -xzf v2.2.1.tar.gz && \
+    cd isolate-2.2.1 && \
+    make isolate && \
+    make install && \
+    cd / && \
+    rm -rf /tmp/isolate-build
+
+RUN apt-get update && apt-get install -y systemd && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /usr/lib/tmpfiles.d && \
+    echo 'd /run/isolate 0777 root root -' > /usr/lib/tmpfiles.d/isolate.conf && \
+    echo 'd /run/isolate/locks 0777 root root -' >> /usr/lib/tmpfiles.d/isolate.conf
+
+RUN mkdir -p /usr/local/etc && \
+    echo "box_root = /var/local/lib/isolate" > /usr/local/etc/isolate && \
+    echo "lock_root = /run/isolate/locks" >> /usr/local/etc/isolate && \
+    echo "cg_root = /sys/fs/cgroup" >> /usr/local/etc/isolate && \
+    echo "first_uid = 60000" >> /usr/local/etc/isolate && \
+    echo "first_gid = 60000" >> /usr/local/etc/isolate && \
+    echo "num_boxes = 100" >> /usr/local/etc/isolate
+
+RUN touch ~/.tmux.conf && \
+    echo "set -g default-shell /bin/bash" > ~/.tmux.conf && \
+    echo "set -g mouse on" >> ~/.tmux.conf
+
+RUN touch ~/.vimrc && \
+    echo "syntax on" > ~/.vimrc && \
+    echo "set number" >> ~/.vimrc && \
+    echo "set expandtab" >> ~/.vimrc && \
+    echo "set shiftwidth=4" >> ~/.vimrc && \
+    echo "set softtabstop=4" >> ~/.vimrc && \
+    echo "set paste" >> ~/.vimrc && \
+    echo "set clipboard=unnamedplus" >> ~/.vimrc
+
+RUN setcap cap_sys_admin=eip /usr/local/bin/isolate && \
+    chmod u+s /usr/local/bin/isolate && \
+    mkdir -p /var/local/lib/isolate && \
+    chmod 777 /var/local/lib/isolate
+
+WORKDIR /code
+
+COPY scripts/start.sh /usr/local/bin/start.sh
+COPY scripts/install-deps.sh /usr/local/bin/install-deps.sh
+COPY scripts/stop.sh /usr/local/bin/stop.sh
+RUN chmod +x scripts/*
+RUN chmod +x /usr/local/bin/start.sh /usr/local/bin/install-deps.sh /usr/local/bin/stop.sh
+
+RUN echo '#!/bin/bash' > /entrypoint.sh && \
+    echo 'systemd-tmpfiles --create /usr/lib/tmpfiles.d/isolate.conf 2>/dev/null || true' >> /entrypoint.sh && \
+    echo 'echo "+memory +cpu +pids +cpuset" > /sys/fs/cgroup/cgroup.subtree_control 2>/dev/null || true' >> /entrypoint.sh && \
+    echo 'if [ ! -f /sys/fs/cgroup/box-0/memory.max ] && [ -d /sys/fs/cgroup/box-0 ]; then' >> /entrypoint.sh && \
+    echo '  echo "WARNING: cgroup memory controller not available. Memory limits may not work."' >> /entrypoint.sh && \
+    echo '  echo "This is expected on macOS Docker Desktop."' >> /entrypoint.sh && \
+    echo 'fi' >> /entrypoint.sh && \
+    echo 'exec "$@"' >> /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["tail", "-f", "/dev/null"]

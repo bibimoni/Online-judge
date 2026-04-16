@@ -1,0 +1,54 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+\usepackage[vietnamese]{babel}
+\usepackage{fancyhdr}
+\usepackage[a4paper, top=2cm]{geometry}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{etoolbox}
+\usepackage{enumitem}
+\usepackage{fontspec}
+\usepackage{array} 
+\usepackage[table]{xcolor}
+\usepackage{fancyvrb}
+\usepackage{caption}
+
+\usepackage{styles}
+
+% \setmainfont[
+%     Path = fonts/
+% ]{Lora}
+
+\pagestyle{fancy}
+
+\begin{document}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+% \fancyhead[R]{
+%   \includegraphics[height=1.5cm]{logo.png}%
+% } % center
+\fancyhead[L]{\makebox[1.2cm]{}} % invisible spacer
+\fancyhead[C]{
+  \makebox[0pt][c]{\fontsize{14pt}{17pt}\selectfont\bfseries Bach Khoa Code Challenge \#3}
+}
+\fancyhead[R]{\raisebox{-0.3\height}{\includegraphics[height=1.2cm]{logo.png}}}
+\fancyfoot[R]{Bach Khoa Algorithm Club}
+
+\myheading{\input{name}} % Tên bài
+
+\input{legend}
+
+\input{input}
+
+\input{interaction}
+
+\input{output}
+
+\input{scoring}
+
+\input{examples}
+
+\input{notes}
+
+\end{document}

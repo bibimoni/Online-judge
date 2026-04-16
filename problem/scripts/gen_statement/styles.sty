@@ -1,0 +1,63 @@
+\setlength{\headheight}{2cm}  % enough for tall images
+\setlength{\headsep}{0.5cm}     % space between header and text
+\setlength{\parskip}{1em}   % space between paragraphs
+\setlength{\parindent}{0pt} % optional: remove indent for new paragraphs
+\linespread{1.1}
+
+\setlist{topsep=0pt}
+
+% \BeforeBeginEnvironment{Verbatim}{\vspace*{-0.6em}}
+% \AfterEndEnvironment{Verbatim}{\vspace*{-1.2em}}
+
+% Disable floating in all tables
+\let\oldtable\table
+\let\endoldtable\endtable
+\renewenvironment{table}{\oldtable[H]}{\endoldtable}
+
+\newcommand{\myheading}[1]{%
+  % \vspace{0.5em}
+  \noindent
+  {\fontsize{18pt}{21pt}\selectfont\bfseries #1}
+  \vspace{0.5em}
+}
+
+% Top-aligned columns
+\newcolumntype{P}[1]{>{\centering\arraybackslash}p{#1}}
+
+\usepackage{fancyvrb}
+\fvset{
+  fontsize=\small,
+  baselinestretch=1,
+  xleftmargin=0pt,
+  xrightmargin=0pt,
+  frame=none,
+  numbers=none,
+  formatcom=\vspace{-1.2ex}, % trims vertical space before
+  commandchars=\\\{\}        % escape backslashes if needed
+}
+
+% Command to insert an example row
+\newcommand{\example}[2]{%
+  \vspace{-0.5ex}%
+  \VerbatimInput{#1} & \VerbatimInput{#2} \\
+  \hline
+}
+
+% Environment for example table
+\newenvironment{exampletable}{
+  \renewcommand{\arraystretch}{1.2}
+  \begin{table}
+  \centering
+  \begin{minipage}{0.8\textwidth}
+  \setlength{\tabcolsep}{4pt}
+  \rowcolors{1}{white}{white}
+  \begin{tabular}[t]{|P{0.48\linewidth}|P{0.48\linewidth}|}
+  \hline
+  \rowcolor{gray!20}
+  \textbf{Standard Input} & \textbf{Standard Output} \\
+  \hline
+}{
+  \end{tabular}
+  \end{minipage}
+  \end{table}
+}
