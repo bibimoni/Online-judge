@@ -1,6 +1,7 @@
 package main
 
 import (
+	"contest/services/scheduler"
 	"contest/src/components"
 	"contest/src/infrastructure/config"
 	"contest/src/infrastructure/database"
@@ -50,6 +51,10 @@ func main() {
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
 	}
+
+	go func() {
+		scheduler.Scheduler(redis, appCtx.GetContestRepository())
+	}()
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {

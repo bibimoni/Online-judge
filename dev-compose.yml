@@ -1,18 +1,27 @@
 services:
-  submission-judge:
-    container_name: submission-judge-app
-    build: 
-      context: ./submission-judge/ 
-      target: dev
+  dev:
+    container_name: online-judge-dev
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
     platform: linux/amd64
     env_file:
-      - ./.env
+      - ./.env.dev
     ports:
       - "8000:8000"
-    depends_on: 
+      - "8001:8001"
+      - "81:81"
+      - "3000:3000"
+      - "50051:50051"
+    depends_on:
       - mongosubmissionjudgedb
+      - redissubmissionjudge
+      - problemmongodb
+      - contestmongodb
+      - scoreboard_redis
+      - mypostgres
     volumes:
-      - ./submission-judge:/app
+      - .:/code
       - ./storage:/problems_dir:ro
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     networks:
@@ -20,18 +29,22 @@ services:
     privileged: true
     security_opt:
       - apparmor=unconfined
-  mongosubmissionjudgedb: 
+    stdin_open: true
+    tty: true
+
+  mongosubmissionjudgedb:
     container_name: submission-judge-db
     image: mongo
     restart: always
     environment:
-      MONGO_INITDB_DATABASE: submissionjudgedb 
+      MONGO_INITDB_DATABASE: submissionjudgedb
     ports:
       - '37017:27017'
     volumes:
       - ./submission-judge-db-data:/data/db
     networks:
       - online-judge-network
+
   redissubmissionjudge:
     container_name: redis-submission-judge
     image: redis
@@ -43,35 +56,7 @@ services:
       - online-judge-network
     volumes:
       - ./redis-submission-judge:/data
-  gateway:
-    container_name: gateway-app 
-    build:
-      context: ./gateway/
-      target: dev
-    env_file:
-      - ./.env
-    ports:
-      - "81:81"
-    volumes:
-      - ./gateway:/app
-    networks:
-      - online-judge-network
-  problem:
-    build:
-      context: ./problem/
-    platform: linux/amd64
-    container_name: problem
-    ports:
-      - '3000:3000'
-    depends_on:
-      - problemmongodb 
-    env_file:
-      - ./.env
-    volumes:
-      - ./problem:/app
-      - ./storage:/storage
-    networks:
-      - online-judge-network
+
   problemmongodb:
     image: mongo
     container_name: problem-mongo
@@ -84,20 +69,7 @@ services:
       - ./problem-db-data:/data/db
     networks:
       - online-judge-network
-  contest:
-    build: ./contest/
-    container_name: contest
-    ports:
-      - '8001:8001'
-    depends_on:
-      - contestmongodb
-      - scoreboard_redis
-    env_file:
-      - ./.env
-    volumes:
-      - ./contest:/app
-    networks:
-      - online-judge-network
+
   contestmongodb:
     image: mongo
     container_name: contest-mongo
@@ -110,6 +82,7 @@ services:
       - ./contest-db-data:/data/db
     networks:
       - online-judge-network
+
   scoreboard_redis:
     image: redis
     container_name: scoreboard_redis
@@ -120,28 +93,10 @@ services:
       - ./scoreboard_redis:/data
     networks:
       - online-judge-network
-  auth:
-    build:
-      context: ./auth-v2/
-      dockerfile: Dockerfile
-    ports:
-      - "50051:50051"
-    depends_on:
-      - mypostgres
-    env_file:
-      - ./.env
-    environment:
-      - NODE_ENV=development
-      - AUTH_DATABASE_URL=postgresql://postgres:postgres@mypostgres:5432/auth_db?schema=public
-      - AUTH_JWT_SECRET=your_jwt_secret
-    volumes:
-      - ./auth-v2:/app
-      - /app/node_modules
-    restart: unless-stopped
-    networks:
-      - online-judge-network
+
   mypostgres:
     image: postgres:latest
+    container_name: auth-postgres
     ports:
       - "5432:5432"
     environment:
@@ -152,6 +107,7 @@ services:
       - ./postgres-data:/var/lib/postgresql
     networks:
       - online-judge-network
+
 networks:
   online-judge-network:
     driver: bridge

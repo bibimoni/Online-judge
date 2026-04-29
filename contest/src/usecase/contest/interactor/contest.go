@@ -1,6 +1,7 @@
 package contestinteractor
 
 import (
+	"contest/services/scheduler"
 	"contest/src/common"
 	domain "contest/src/domain/entity"
 	contestrepo "contest/src/domain/repository/contest"
@@ -10,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"time"
 )
 
 type ContestInteractor struct {
@@ -114,10 +116,16 @@ func (i *ContestInteractor) PatchContest(
 		updateData["scoreboard_visibility"] = *input.ScoreboardVisibility
 	}
 	if input.StartTime != nil {
+		if input.StartTime.Before(time.Now().Add(5 * time.Minute)) {
+			return nil, common.NewBadRequestError("modification of start time must be at least 5 minutes before the new time")
+		}
 		updateData["start_time"] = *input.StartTime
 		startTime = *input.StartTime
 	}
 	if input.EndTime != nil {
+		if input.EndTime.Before(time.Now().Add(5 * time.Minute)) {
+			return nil, common.NewBadRequestError("modification of end time must be at least 5 minutes before the new time")
+		}
 		updateData["end_time"] = *input.EndTime
 		endTime = *input.EndTime
 	}
@@ -163,6 +171,14 @@ func (i *ContestInteractor) PatchContest(
 		if input.ContestRule.MaxAllowedSubmissionsPerProblem != nil {
 			updateData["contest_rule.max_allowed_submissions_per_problem"] = *input.ContestRule.MaxAllowedSubmissionsPerProblem
 		}
+	}
+
+	if _, ok := updateData["start_time"]; ok {
+		scheduler.ChangeContestStartDate(input.ContestId, *input.StartTime, i.contestRepo)
+	}
+
+	if _, ok := updateData["end_time"]; ok {
+		scheduler.ChangeContestEndDate(input.ContestId, *input.EndTime, i.contestRepo)
 	}
 
 	if len(updateData) == 0 {

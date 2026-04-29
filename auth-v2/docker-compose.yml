@@ -8,10 +8,8 @@ services:
       - "50051:50051"
     depends_on:
       - mypostgres
-    depends_on:
-      - mypostgres
     env_file:
-      - ../../../.env
+      - ../.env
     environment:
       - NODE_ENV=development
       - AUTH_DATABASE_URL=postgresql://postgres:postgres@mypostgres:5432/auth_db?schema=public
@@ -32,4 +30,3 @@ services:
       - postgres-data:/var/lib/postgresql/data
 volumes:
   postgres-data:
-
